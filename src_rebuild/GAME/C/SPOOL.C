@@ -1929,7 +1929,7 @@ void ClearRegion(int target_region)
 	int loop;
 
 	loop = 1024;
-	cell_ptrs_s = cell_ptrs + target_region * 1024;
+	cell_ptrs_s = cell_ptrs + target_region * MAP_REGION_SIZE * MAP_REGION_SIZE;
 	pvsptr = (long *)PVS_Buffers[target_region];
 
 	do {
@@ -1964,6 +1964,51 @@ void ClearRegion(int target_region)
 		// Start line: 3836
 	/* end block 2 */
 	// End Line: 3837
+
+#if 0
+CELL_OBJECT tempCellObjects[16384];
+
+void GotRegionD1()
+{
+	int target_barrel_reg;
+	int region = spool_regioninfo[spool_regionpos].region_to_unpack;
+	target_barrel_reg = spool_regioninfo[spool_regionpos].target_barrel_region;
+
+	int probable_co_count = spool_regioninfo[spool_regionpos].nsectors * 2048 / sizeof(CELL_OBJECT);
+
+	// convert all CELL_OBJECT to PACKED_CELL_OBJECT
+	int cell_x = 0;// (pPosition->vx + units_across_halved) / MAP_CELL_SIZE;
+	int cell_z = 0;// (pPosition->vz + units_down_halved) / MAP_CELL_SIZE;
+	
+	int nearCellx = (cell_x - (cells_across / 2)) * MAP_CELL_SIZE;
+	int nearCellz = (cell_z - (cells_down / 2)) * MAP_CELL_SIZE;
+
+	for(int i = 0; i < probable_co_count; i++)
+	{
+		PACKED_CELL_OBJECT* ppco = &cell_objects[num_straddlers + cell_objects_add[target_barrel_reg] + i];
+		CELL_OBJECT* pco = &tempCellObjects[i];
+
+		if (pco->pos.vx == 559105348 || pco->type > 1999 || pco->pos.vy > 100000 || pco->pos.vy < -100000)
+			continue;
+		
+		ppco->pos.vx = 0;// pco->pos.vx;
+		ppco->pos.vz = 0;// pco->pos.vz;
+		ppco->pos.vy = (pco->pos.vy << 1) | (pco->type >> 10 & 1);
+		ppco->value = (pco->yang & 0x3f) | ((pco->type & 0x3ff) << 6);
+
+		int pos_vy = (ppco->pos.vy << 0x10) >> 0x11;
+		int yang = ppco->value & 0x3f;
+		int type = (ppco->value >> 6) | ((ppco->pos.vy & 1) << 10);
+
+		if(pos_vy != pco->pos.vy || yang != pco->yang || type != pco->type)
+		{
+			printError("BAD ALGO\n");
+		}
+	}
+
+	GotRegion();
+}
+#endif
 
 
 // [D] [T]
@@ -2007,17 +2052,26 @@ int LoadRegionData(int region, int target_region)
 	}
 	else if (gDriver1Level)
 	{
+#if 0
 		// TODO: ....
 
-		RequestSpool(0, 0, offset, spoolptr->cell_data_size[0], (char *)(cell_objects + num_straddlers + cell_objects_add[target_region]), NULL);
-		offset += spoolptr->cell_data_size[0];
+		//RequestSpool(0, 0, offset, spoolptr->roadm_size, (char*)RoadMapDataRegions[target_region], NULL);
+		offset += spoolptr->roadm_size;
 
-		RequestSpool(0, 0, offset, spoolptr->cell_data_size[1], (char *)(cells + cell_slots_add[target_region]), NULL);
+		//RequestSpool(0, 0, offset, spoolptr->roadh_size, (char*)RoadMapDataRegions[target_region] + 0x1000, NULL);
+		offset += spoolptr->roadh_size;
+
+		RequestSpool(0, 0, offset, spoolptr->cell_data_size[1], packed_cell_pointers, NULL);
 		offset += spoolptr->cell_data_size[1];
 
-		RequestSpool(0, 0, offset, spoolptr->cell_data_size[2], packed_cell_pointers, GotRegion);
-		offset += spoolptr->cell_data_size[2];
+		RequestSpool(0, 0, offset, spoolptr->cell_data_size[0], (char *)(cells + cell_slots_add[target_region]), NULL);
+		offset += spoolptr->cell_data_size[0];
 
+		RequestSpool(0, 0, offset, spoolptr->cell_data_size[2], (char *)tempCellObjects, GotRegionD1);
+		offset += spoolptr->cell_data_size[2];
+	
+		offset += spoolptr->pvs_size;
+#endif
 	}
 	else
 #endif
@@ -3102,16 +3156,16 @@ void unpack_cellpointers(int region_to_unpack, int target_barrel_region, char* c
 
 	if (packtype == 0)
 	{
-		short_ptr = cell_ptrs + target_barrel_region * 1024;
+		short_ptr = cell_ptrs + target_barrel_region * MAP_REGION_SIZE * MAP_REGION_SIZE;
 
-		for (loop = 0; loop < 1024; loop++)
+		for (loop = 0; loop < MAP_REGION_SIZE * MAP_REGION_SIZE; loop++)
 			*short_ptr++ = 0xffff;
 	}
 	else if (packtype == 1)
 	{
-		short_ptr = cell_ptrs + target_barrel_region * 1024;
+		short_ptr = cell_ptrs + target_barrel_region * MAP_REGION_SIZE * MAP_REGION_SIZE;
 
-		for (loop = 0; loop < 1024; loop++)
+		for (loop = 0; loop < MAP_REGION_SIZE * MAP_REGION_SIZE; loop++)
 		{
 			cell = *source_packed_data++;
 
@@ -3126,9 +3180,9 @@ void unpack_cellpointers(int region_to_unpack, int target_barrel_region, char* c
 		bitpos = 0x8000;
 		pcode = (uint)*source_packed_data;
 		source_packed_data++;
-		short_ptr = cell_ptrs + target_barrel_region * 1024;
+		short_ptr = cell_ptrs + target_barrel_region * MAP_REGION_SIZE * MAP_REGION_SIZE;
 
-		for (loop = 0; loop < 1024; loop++)
+		for (loop = 0; loop < MAP_REGION_SIZE * MAP_REGION_SIZE; loop++)
 		{
 			if (pcode & bitpos)
 			{
