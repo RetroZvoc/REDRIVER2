@@ -1949,46 +1949,85 @@ void ClearRegion(int target_region)
 	/* end block 2 */
 	// End Line: 3837
 
-#if 0
-CELL_OBJECT tempCellObjects[16384];
+#if 1
+CELL_OBJECT tempCellObjects[4][16384];
+int tempCellObjectCount[4];
+
+void ConvertD1CellObjects(int move_x, int move_z, int which)
+{
+	int cell_x, cell_z;
+	int nearCell_x, nearCell_z;
+	int nearRegion_x, nearRegion_z;
+
+	for(int r = 0; r < 4; r++)
+	{
+		if(which != -1)
+		{
+			if (which != r)
+				continue;
+		}
+
+		// convert all CELL_OBJECT to PACKED_CELL_OBJECT
+		for(int i = 0; i < tempCellObjectCount[r]; i++)
+		{
+			PACKED_CELL_OBJECT* ppco = &cell_objects[num_straddlers + cell_objects_add[r] + i];
+			CELL_OBJECT* pco = &tempCellObjects[r][i];
+
+			if (pco->pos.vx == 559105348 || pco->type > 1999 || pco->pos.vy > 300000 || pco->pos.vy < -300000)
+				continue;
+
+			// compute region position
+
+			cell_x = (pco->pos.vx + units_across_halved) / MAP_CELL_SIZE;
+			cell_z = (pco->pos.vz + units_down_halved) / MAP_CELL_SIZE;
+
+			nearCell_x = (cell_x - (cells_across / 2));
+			nearCell_z = (cell_z - (cells_down / 2));
+
+			nearRegion_x = nearCell_x / MAP_REGION_SIZE + move_x;
+			nearRegion_z = nearCell_z / MAP_REGION_SIZE + move_z;
+
+			ppco->pos.vx = pco->pos.vx - (nearRegion_x)* MAP_REGION_SIZE* MAP_CELL_SIZE;
+			ppco->pos.vz = pco->pos.vz - (nearRegion_z) * MAP_REGION_SIZE * MAP_CELL_SIZE;
+
+			// TODO: check if it's too far from it's cell now
+
+			ppco->pos.vy = (pco->pos.vy << 1) | (pco->type >> 10 & 1);
+			ppco->value = (pco->yang & 0x3f) | ((pco->type & 0x3ff) << 6);
+
+			int pos_vy = (ppco->pos.vy << 0x10) >> 0x11;
+			int yang = ppco->value & 0x3f;
+			int type = (ppco->value >> 6) | ((ppco->pos.vy & 1) << 10);
+
+			if(pos_vy != pco->pos.vy || yang != pco->yang || type != pco->type)
+			{
+				printError("BAD ALGO\n");
+			}
+		}
+	}
+}
+
+void MoveSpooledObjects(int x, int z)
+{
+	static int of_x = 0;
+	static int of_z = 0;
+
+	of_x += x;
+	of_z += z;
+
+	printInfo("move %d %d\n", of_x, of_z);
+	
+	ConvertD1CellObjects(of_x, of_z, -1);
+}
 
 void GotRegionD1()
 {
 	int target_barrel_reg;
-	int region = spool_regioninfo[spool_regionpos].region_to_unpack;
 	target_barrel_reg = spool_regioninfo[spool_regionpos].target_barrel_region;
 
-	int probable_co_count = spool_regioninfo[spool_regionpos].nsectors * 2048 / sizeof(CELL_OBJECT);
-
-	// convert all CELL_OBJECT to PACKED_CELL_OBJECT
-	int cell_x = 0;// (pPosition->vx + units_across_halved) / MAP_CELL_SIZE;
-	int cell_z = 0;// (pPosition->vz + units_down_halved) / MAP_CELL_SIZE;
+	tempCellObjectCount[target_barrel_reg] = spool_regioninfo[spool_regionpos].nsectors * 2048 / sizeof(CELL_OBJECT);
 	
-	int nearCellx = (cell_x - (cells_across / 2)) * MAP_CELL_SIZE;
-	int nearCellz = (cell_z - (cells_down / 2)) * MAP_CELL_SIZE;
-
-	for(int i = 0; i < probable_co_count; i++)
-	{
-		PACKED_CELL_OBJECT* ppco = &cell_objects[num_straddlers + cell_objects_add[target_barrel_reg] + i];
-		CELL_OBJECT* pco = &tempCellObjects[i];
-
-		if (pco->pos.vx == 559105348 || pco->type > 1999 || pco->pos.vy > 100000 || pco->pos.vy < -100000)
-			continue;
-		
-		ppco->pos.vx = 0;// pco->pos.vx;
-		ppco->pos.vz = 0;// pco->pos.vz;
-		ppco->pos.vy = (pco->pos.vy << 1) | (pco->type >> 10 & 1);
-		ppco->value = (pco->yang & 0x3f) | ((pco->type & 0x3ff) << 6);
-
-		int pos_vy = (ppco->pos.vy << 0x10) >> 0x11;
-		int yang = ppco->value & 0x3f;
-		int type = (ppco->value >> 6) | ((ppco->pos.vy & 1) << 10);
-
-		if(pos_vy != pco->pos.vy || yang != pco->yang || type != pco->type)
-		{
-			printError("BAD ALGO\n");
-		}
-	}
+	ConvertD1CellObjects(0,0, target_barrel_reg);
 
 	GotRegion();
 }
@@ -2036,7 +2075,7 @@ int LoadRegionData(int region, int target_region)
 	}
 	else if (gDriver1Level)
 	{
-#if 0
+#if 1
 		// TODO: ....
 
 		//RequestSpool(0, 0, offset, spoolptr->roadm_size, (char*)RoadMapDataRegions[target_region], NULL);
@@ -2051,7 +2090,7 @@ int LoadRegionData(int region, int target_region)
 		RequestSpool(0, 0, offset, spoolptr->cell_data_size[0], (char *)(cells + cell_slots_add[target_region]), NULL);
 		offset += spoolptr->cell_data_size[0];
 
-		RequestSpool(0, 0, offset, spoolptr->cell_data_size[2], (char *)tempCellObjects, GotRegionD1);
+		RequestSpool(0, 0, offset, spoolptr->cell_data_size[2], (char *)tempCellObjects[target_region], GotRegionD1);
 		offset += spoolptr->cell_data_size[2];
 	
 		offset += spoolptr->pvs_size;

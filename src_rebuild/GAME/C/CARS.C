@@ -2392,9 +2392,6 @@ char GetCarPalIndex(int tpage)
 // [D]
 void ProcessPalletLump(char *lump_ptr, int lump_size)
 {
-	if (gDriver1Level)	// [A]
-		return;	// TODO: load Driver 1 civ palettes
-
 	ushort clutValue;
 	int *buffPtr;
 	int texnum;
@@ -2418,9 +2415,8 @@ void ProcessPalletLump(char *lump_ptr, int lump_size)
 		palette = buffPtr[0];
 		texnum = buffPtr[1];
 		tpageindex = buffPtr[2];
-		clut_number = buffPtr[3];
 
-		if (clut_number == -1)
+		if(gDriver1Level)
 		{
 			// store clut
 			LoadImage(&clutpos, (u_long*)(buffPtr + 4));
@@ -2430,13 +2426,34 @@ void ProcessPalletLump(char *lump_ptr, int lump_size)
 
 			IncrementClutNum(&clutpos);
 
-			buffPtr += 12;
+			buffPtr += 11;
+
+			total_cluts--;
+			if (total_cluts < 0)
+				break;
 		}
 		else
 		{
-			// use stored clut
-			clutValue = clutTable[clut_number];
-			buffPtr += 4;
+			clut_number = buffPtr[3];
+
+			if (clut_number == -1)
+			{
+				// store clut
+				LoadImage(&clutpos, (u_long*)(buffPtr + 4));
+
+				clutValue = GetClut(clutpos.x, clutpos.y);
+				*clutTablePtr++ = clutValue;
+
+				IncrementClutNum(&clutpos);
+
+				buffPtr += 12;
+			}
+			else
+			{
+				// use stored clut
+				clutValue = clutTable[clut_number];
+				buffPtr += 4;
+			}
 		}
 
 		civ_clut[GetCarPalIndex(tpageindex)][texnum][palette + 1] = clutValue;
