@@ -1,8 +1,6 @@
 #include "DRIVER2.H"
 #include "MAIN.H"
 
-#include <algorithm>
-
 
 #include "LIBETC.H"
 #include "LIBSPU.H"
@@ -185,7 +183,7 @@ int gDemoLevel = 0;
 				// Start line: 2845
 				// Start offset: 0x00058F7C
 				// Variables:
-			// 		struct DRIVER2_JUNCTION *dst; // $a0
+			// 		DRIVER2_JUNCTION *dst; // $a0
 			// 		unsigned long *src; // $a2
 			// 		int i; // $v1
 			/* end block 1.1.1 */
@@ -196,7 +194,7 @@ int gDemoLevel = 0;
 				// Start line: 2865
 				// Start offset: 0x00058FCC
 				// Variables:
-			// 		struct DRIVER2_JUNCTION *dst; // $a0
+			// 		DRIVER2_JUNCTION *dst; // $a0
 			// 		unsigned long *src; // $a2
 			// 		int i; // $v1
 			/* end block 1.1.2 */
@@ -614,7 +612,7 @@ void InitModelNames(void)
 			// Start line: 3305
 			// Start offset: 0x000596B0
 			// Variables:
-		// 		struct STREAM_SOURCE *pinfo; // $s0
+		// 		STREAM_SOURCE *pinfo; // $s0
 		// 		char padid; // stack offset -48
 		// 		int i; // $s2
 		/* end block 1.4 */
@@ -683,14 +681,9 @@ void InitModelNames(void)
 // [D] [T]
 void GameInit(void)
 {
-	long lVar1;
-	_PLAYER* p_Var2;
-	STREAM_SOURCE* pSVar3;
+	STREAM_SOURCE* plStart;
 	int i;
-	int iVar5;
-	int iVar6;
 	char padid;
-	short totaldam;
 
 	if (NewLevel == 0)
 	{
@@ -712,7 +705,7 @@ void GameInit(void)
 #endif // PSX
 
 		MALLOC_BEGIN();
-		packed_cell_pointers = D_MALLOC(0x1000);
+		packed_cell_pointers = D_MALLOC(1024 * sizeof(void*));
 		MALLOC_END();
 	}
 
@@ -769,6 +762,28 @@ void GameInit(void)
 	PauseSound();
 	ThisMotion = 0;
 
+	// [A] Driver 1 music support
+#ifndef PSX
+	if (gDriver1Music)
+	{
+		if (GameType == GAME_TAKEADRIVE)
+		{
+			if(GameLevel == 0)
+				gMusicType = 0 + (gCurrentMissionNumber & 1);
+			else if (GameLevel == 1)
+				gMusicType = 5 + (gCurrentMissionNumber & 1);
+			else if (GameLevel == 2)
+				gMusicType = 2 + (gCurrentMissionNumber & 1) * 5;
+			else if (GameLevel == 3)
+				gMusicType = 3 + (gCurrentMissionNumber & 1);
+		}
+		else
+		{
+			gMusicType = gCurrentMissionNumber % 8;
+		}
+	}
+	else 
+#endif
 	if (GameLevel == 1)
 	{
 		gMusicType = 1;
@@ -851,41 +866,37 @@ void GameInit(void)
 	i = 0;
 	while (i < numPlayersToCreate)
 	{
-		pSVar3 = PlayerStartInfo[i];
+		plStart = PlayerStartInfo[i];
 		padid = -i;
 
 		if (i < NumPlayers)
 			padid = i;
 
-		gStartOnFoot = (pSVar3->type == 2);
+		gStartOnFoot = (plStart->type == 2);
 
-		InitPlayer(&player[i], &car_data[i], pSVar3->controlType, pSVar3->rotation, (long(*)[4]) & pSVar3->position, pSVar3->model, pSVar3->palette, &padid);
+		InitPlayer(&player[i], &car_data[i], plStart->controlType, plStart->rotation, (LONGVECTOR *)&plStart->position, plStart->model, plStart->palette, &padid);
 
 		if (gStartOnFoot == 0)
 		{
-			car_data[i].ap.damage[0] = pSVar3->damage[0];
-			car_data[i].ap.damage[1] = pSVar3->damage[1];
-			car_data[i].ap.damage[2] = pSVar3->damage[2];
-			car_data[i].ap.damage[3] = pSVar3->damage[3];
-			car_data[i].ap.damage[4] = pSVar3->damage[4];
-			car_data[i].ap.damage[5] = pSVar3->damage[5];
+			car_data[i].ap.damage[0] = plStart->damage[0];
+			car_data[i].ap.damage[1] = plStart->damage[1];
+			car_data[i].ap.damage[2] = plStart->damage[2];
+			car_data[i].ap.damage[3] = plStart->damage[3];
+			car_data[i].ap.damage[4] = plStart->damage[4];
+			car_data[i].ap.damage[5] = plStart->damage[5];
 
-			car_data[i].totalDamage = pSVar3->totaldamage;
+			car_data[i].totalDamage = plStart->totaldamage;
 
 			car_data[i].ap.needsDenting = 1;
 		}
 
 		i++;
-	};
-
-#ifdef CUTSCENE_RECORDER
-	extern int gCutsceneAsReplay;
-	extern int gCutsceneAsReplay_PlayerId;
-	if (gCutsceneAsReplay != 0)
-	{
-		player[0].playerCarId = gCutsceneAsReplay_PlayerId;
-		player[0].cameraCarId = gCutsceneAsReplay_PlayerId;
 	}
+
+	// FIXME: need to change streams properly
+#ifdef CUTSCENE_RECORDER
+	extern void NextChase(int dir);
+	NextChase(0);
 #endif
 
 	if (pathAILoaded != 0)
@@ -997,7 +1008,7 @@ void GameInit(void)
 	// 		static char t1; // offset 0x4
 	// 		static char t2; // offset 0x5
 	// 		static int oldsp; // offset 0x8
-	// 		struct _CAR_DATA *lcp; // $s0
+	// 		CAR_DATA *lcp; // $s0
 	// 		int i; // $s2
 
 		/* begin block 1.1 */
@@ -1141,11 +1152,11 @@ void StepSim(void)
 	static char t2; // offset 0x5
 	static int oldsp; // offset 0x8
 
-	char padSteer;
+	char padAcc;
 	short* playerFelony;
 	int stream;
-	_CAR_DATA* cp;
-	_PLAYER* pl;
+	CAR_DATA* cp;
+	PLAYER* pl;
 	int i, j;
 	int car;
 
@@ -1401,18 +1412,17 @@ void StepSim(void)
 		{
 			if (Pads[stream].type == 4)
 			{
-				padSteer = Pads[stream].mapanalog[3];
+				padAcc = Pads[stream].mapanalog[3];
 
-				if (padSteer < -64 && padSteer > -100)
+				// walk back
+				if (padAcc < -64)
 				{
-					Pads[stream].mapped |= 0x1008;
+					if(padAcc < -100)
+						Pads[stream].mapped |= 0x1000;
+					else
+						Pads[stream].mapped |= 0x1008;
 				}
-				else if (padSteer < -100 && padSteer > 127)
-				{
-					stream = pl->padid;
-					Pads[stream].mapped |= 0x1000;
-				}
-				else if (padSteer > 32)
+				else if (padAcc > 32)
 				{
 					stream = pl->padid;
 					Pads[stream].mapped |= 0x4000;
@@ -1600,14 +1610,14 @@ void StepSim(void)
 		// Start offset: 0x0005A8DC
 		// Variables:
 	// 		int i; // $s0
-	// 		struct RECT dest; // stack offset -24
+	// 		RECT dest; // stack offset -24
 
 		/* begin block 1.1 */
 			// Start line: 4125
 			// Start offset: 0x0005AA2C
 			// Variables:
-		// 		static struct POLY_FT3 buffer[2]; // offset 0x10
-		// 		static struct POLY_FT3 *null; // offset 0xc
+		// 		static POLY_FT3 buffer[2]; // offset 0x10
+		// 		static POLY_FT3 *null; // offset 0xc
 		/* end block 1.1 */
 		// End offset: 0x0005AA98
 		// End Line: 4140
@@ -1669,8 +1679,10 @@ void GameLoop(void)
 		UnPauseSound();
 
 	StartGameSounds();
+
 	SetMasterVolume(gMasterVolume);
 	SetXMVolume(gMusicVolume);
+	
 	CloseControllers();
 	InitControllers();
 	VSync(0);
@@ -1809,11 +1821,11 @@ void StepGame(void)
 	int iVar2;
 	int i;
 	unsigned char* puVar4;
-	_PLAYER* pl;
+	PLAYER* pl;
 
 	if (CameraCnt == 3)
 	{
-		StartXM(0);
+		StartXM(gDriver1Music);
 	}
 
 	if (doSpooling)
@@ -2161,7 +2173,7 @@ void DrawGame(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ EndGame(enum GAMEMODE mode /*$a0*/)
+// void /*$ra*/ EndGame(GAMEMODE mode /*$a0*/)
  // line 4586, offset 0x0005c574
 	/* begin block 1 */
 		// Start line: 10823
@@ -2193,7 +2205,7 @@ void EndGame(GAMEMODE mode)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ EnablePause(enum PAUSEMODE mode /*$a0*/)
+// void /*$ra*/ EnablePause(PAUSEMODE mode /*$a0*/)
  // line 4593, offset 0x0005c590
 	/* begin block 1 */
 		// Start line: 10842
@@ -2361,7 +2373,7 @@ void PrintCommandLineArguments()
 #endif // DEBUG_OPTIONS
 		"  -replay <filename> : starts replay from file\n"
 #ifdef CUTSCENE_RECORDER
-		"  -recordcutscene <mission_number> <subindex> <base_mission> : starts cutscene recorder session\n"
+		"  -recordcutscene <filename> : starts cutscene recording session. Specify INI filename with it\n"
 #endif
 		"  -nointro : disable intro screens\n"
 		"  -nofmv : disable all FMVs\n";
@@ -2533,6 +2545,8 @@ int redriver2_main(int argc, char** argv)
 
 			gCurrentMissionNumber = atoi(argv[i + 1]);
 			i++;
+
+			GameType = GAME_TAKEADRIVE;
 			LaunchGame();
 		}
 		else
@@ -2596,38 +2610,15 @@ int redriver2_main(int argc, char** argv)
 #ifdef CUTSCENE_RECORDER
 			else if (!_stricmp(argv[i], "-recordcutscene"))
 			{
-				if (argc - i < 3)
-				{
-					printWarning("Example: -recordcutscene <mission_number> <subindex> <base_mission>");
-					return 0;
-				}
-
 				SetFEDrawMode();
 
 				gInFrontend = 0;
 				AttractMode = 0;
 
-				int subindx = atoi(argv[i + 2]);
-
-				extern int LoadCutsceneAsReplay(int subindex);
-				extern int gCutsceneAsReplay;
-				extern int gCutsceneAsReplay_PlayerId;
-
-				gCutsceneAsReplay = atoi(argv[i + 1]);			// acts as cutscene mission
-				gCurrentMissionNumber = atoi(argv[i + 3]);		// acts as base mission. Some mission requires other base
-				gCutsceneAsReplay_PlayerId = 0;
-
-				if (LoadCutsceneAsReplay(subindx))
-				{
-					CurrentGameMode = GAMEMODE_REPLAY;
-					gLoadedReplay = 1;
-
-					LaunchGame();
-
-					gLoadedReplay = 0;
-				}
-				gCutsceneAsReplay = 0;
-				return 1;
+				extern void LoadCutsceneRecorder(char* filename);
+				
+				LoadCutsceneRecorder(argv[i+1]);
+				i++;
 			}
 #endif
 			else
@@ -2697,7 +2688,7 @@ void FadeScreen(int end_value)
 		// Start line: 4895
 		// Start offset: 0x0005B54C
 		// Variables:
-	// 		struct _CAR_DATA *cp; // $s1
+	// 		CAR_DATA *cp; // $s1
 	// 		int count; // $s0
 	// 		int scale; // $v1
 	// 		int wheel; // $t1
@@ -2730,7 +2721,8 @@ void UpdatePlayerInformation(void)
 	WHEEL* wheel;
 	int i, j;
 	int wheelsInWater;
-	_CAR_DATA* cp;
+	int wheelsAboveWaterToDieWithFade;
+	CAR_DATA* cp;
 
 	cp = NULL;
 
@@ -2747,8 +2739,7 @@ void UpdatePlayerInformation(void)
 
 	FelonyBar.position = *playerFelony;
 
-	i = 0;
-	while (i < NumPlayers)
+	for (i = 0; i < NumPlayers; i++)
 	{
 		if (player[i].playerType == 1)
 		{
@@ -2761,29 +2752,39 @@ void UpdatePlayerInformation(void)
 			}
 
 			wheelsInWater = 0;
+			wheelsAboveWaterToDieWithFade = 0;
 
-			j = 0;
 			wheel = cp->hd.wheel;
 
-			do {
-				if ((wheel->surface & 0x7) == 1)
+			// [A] count the wheels above the water and in the water
+			for (j = 0; j < 4; j++)
+			{
+				if ((wheel->surface & 7) == 1)
 				{
 					if (wheel->susCompression == 0)
-					{
-						if (cp->hd.where.t[1] < -1000 && gDieWithFade == 0)
-						{
-							gDieWithFade = wheel->surface & 7;
-						}
-					}
+						wheelsAboveWaterToDieWithFade++;
 					else
-					{
 						wheelsInWater++;
-					}
 				}
 
 				wheel++;
-				j++;
-			} while (j < 4);
+			}
+
+			// [A] if all wheels above the water surface and we are falling down
+			// fade out and end the game
+			if(wheelsAboveWaterToDieWithFade > 0 && cp->hd.where.t[1] < -1000 && gDieWithFade == 0)
+			{
+				// fix for Havana tunnels and Chicago freeway
+				if (GameLevel <= 1)
+				{
+					if(wheelsAboveWaterToDieWithFade == 4)
+						gDieWithFade = 1;
+				}
+				else // car drown as usual
+				{
+					gDieWithFade = 1;
+				}
+			}
 
 			if (wheelsInWater == 4) // apply water damage
 				cp->totalDamage += MaxPlayerDamage[i] / 80;
@@ -2811,8 +2812,6 @@ void UpdatePlayerInformation(void)
 		{
 			gDieWithFade = 1;
 		}
-
-		i++;
 	}
 }
 
@@ -2849,7 +2848,7 @@ void UpdatePlayerInformation(void)
 			// Start line: 5090
 			// Start offset: 0x0005BAE4
 			// Variables:
-		// 		struct POLY_F4 *poly; // $v1
+		// 		POLY_F4 *poly; // $v1
 		// 		int col; // $a1
 		/* end block 1.3 */
 		// End offset: 0x0005BC20
@@ -2886,7 +2885,7 @@ void RenderGame2(int view)
 	int notInDreaAndStevesEvilLair;
 
 	CurrentPlayerView = view;
-	InitCamera((_PLAYER*)(player + view));
+	InitCamera((PLAYER*)(player + view));
 
 #ifndef PSX
 	int screenW, screenH;
@@ -2928,6 +2927,7 @@ void RenderGame2(int view)
 	DisplayMissionTitle();
 	DrawInGameCutscene();
 
+	// draw events from level itself
 	DrawEvents(1);
 
 	Set_Inv_CameraMatrix();
@@ -2937,6 +2937,7 @@ void RenderGame2(int view)
 	DrawThrownBombs();
 	AddGroundDebris();
 
+	// draw events that use cell object
 	DrawEvents(0);
 
 	current->ot += 10;
@@ -3175,8 +3176,9 @@ void InitGameVariables(void)
 	gStopPadReads = 0;
 	DawnCount = 0;
 	variable_weather = 0;
-	current_camera_angle = 0x800;
+	current_camera_angle = 2048;
 	gDieWithFade = 0;
+	pedestrianFelony = 0;	// [A]
 
 	srand(0x1234);
 	RandomInit(0xd431, 0x350b1);
@@ -3256,7 +3258,7 @@ void InitGameVariables(void)
 		// Start line: 5346
 		// Start offset: 0x0005BF74
 		// Variables:
-	// 		struct _CAR_DATA *car; // $s0
+	// 		CAR_DATA *car; // $s0
 
 		/* begin block 1.1 */
 			// Start line: 5348
@@ -3283,7 +3285,7 @@ void DealWithHorn(char* hr, int i)
 {
 	int channel;
 	int modelId;
-	_CAR_DATA* car;
+	CAR_DATA* car;
 
 	car = &car_data[player[i].playerCarId];
 
@@ -3306,11 +3308,11 @@ void DealWithHorn(char* hr, int i)
 
 		channel = i != 0 ? 5 : 2;
 
-		Start3DSoundVolPitch(channel, 3, modelId * 3 + 2,
+		Start3DSoundVolPitch(channel, SOUND_BANK_CARS, modelId * 3 + 2,
 			car->hd.where.t[0],
 			car->hd.where.t[1],
 			car->hd.where.t[2], -10000,
-			0x1000);
+			4096);
 
 		if (NumPlayers > 1 && NoPlayerControl == 0)
 		{
@@ -3321,7 +3323,7 @@ void DealWithHorn(char* hr, int i)
 
 		channel = i != 0 ? 5 : 2;
 
-		SetChannelPosition3(channel, (VECTOR*)car->hd.where.t, car->st.n.linearVelocity, -2000, i * 8 + 0x1000, 0);
+		SetChannelPosition3(channel, (VECTOR*)car->hd.where.t, car->st.n.linearVelocity, -2000, i * 8 + 4096, 0);
 	}
 
 	*hr = (*hr + 1) % 3;

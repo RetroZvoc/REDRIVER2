@@ -18,7 +18,6 @@
 #include "GAMESND.H"
 #include "SOUND.H"
 #include "BCOLLIDE.H"
-#include "GLAUNCH.H"
 #include "LEADAI.H"
 #include "MAIN.H"
 #include "PEDEST.H"
@@ -26,10 +25,24 @@
 
 #include "INLINE_C.H"
 #include "OVERLAY.H"
+#include "STRINGS.H"
 
-unsigned char speedLimits[3] = { 56, 97, 138 };
+const u_char speedLimits[3] = { 56, 97, 138 };
 
-CIV_AI_234fake civPingTest = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+struct
+{
+	int NumPingedIn;
+	int OffRoad;
+	int NotDrivable;
+	int TooShortStr;
+	int NearEndStr;
+	int TooShortCrv;
+	int NearEndCrv;
+	int TooCloseNuddaCar;
+	int TooClosePlayer;
+	int InvalidRegion;
+} civPingTest = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
 char modelRandomList[] = { 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 0, 1, 0, 4 };
 unsigned char reservedSlots[MAX_CARS] = { 0 };
 
@@ -74,13 +87,13 @@ int test555 = 0;
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ InitCar(struct _CAR_DATA *cp /*$s0*/, int direction /*$s6*/, long (*startPos)[4] /*$s2*/, unsigned char control /*$s4*/, int model /*stack 16*/, int palette /*stack 20*/, char *extraData /*stack 24*/)
+// int /*$ra*/ InitCar(CAR_DATA *cp /*$s0*/, int direction /*$s6*/, LONGVECTOR* startPos /*$s2*/, unsigned char control /*$s4*/, int model /*stack 16*/, int palette /*stack 20*/, char *extraData /*stack 24*/)
  // line 717, offset 0x00023de8
 	/* begin block 1 */
 		// Start line: 718
 		// Start offset: 0x00023DE8
 		// Variables:
-	// 		struct VECTOR tmpStart; // stack offset -48
+	// 		VECTOR tmpStart; // stack offset -48
 	/* end block 1 */
 	// End offset: 0x00024028
 	// End Line: 786
@@ -91,11 +104,11 @@ int test555 = 0;
 	// End Line: 1435
 
 // [D] [T]
-int InitCar(_CAR_DATA* cp, int direction, long(*startPos)[4], unsigned char control, int model, int palette, char* extraData)
+int InitCar(CAR_DATA* cp, int direction, LONGVECTOR* startPos, unsigned char control, int model, int palette, char* extraData)
 {
 	VECTOR tmpStart;
 
-	ClearMem((char*)cp, sizeof(_CAR_DATA));
+	ClearMem((char*)cp, sizeof(CAR_DATA));
 
 	cp->wasOnGround = 1;
 
@@ -119,7 +132,7 @@ int InitCar(_CAR_DATA* cp, int direction, long(*startPos)[4], unsigned char cont
 	if (control == CONTROL_TYPE_NONE)
 		return 1;
 
-	InitCarPhysics(cp, (long(*)[4]) & tmpStart, direction);
+	InitCarPhysics(cp, (LONGVECTOR *)&tmpStart, direction);
 	cp->ap.palette = palette;
 
 	cp->controlType = control;
@@ -174,14 +187,14 @@ int InitCar(_CAR_DATA* cp, int direction, long(*startPos)[4], unsigned char cont
 
 // decompiled code
 // original method signature: 
-// struct _CAR_DATA * /*$ra*/ FindClosestCar(int x /*$t4*/, int y /*$a1*/, int z /*$a2*/, int *distToCarSq /*$a3*/)
+// CAR_DATA * /*$ra*/ FindClosestCar(int x /*$t4*/, int y /*$a1*/, int z /*$a2*/, int *distToCarSq /*$a3*/)
  // line 891, offset 0x0002d11c
 	/* begin block 1 */
 		// Start line: 892
 		// Start offset: 0x0002D11C
 		// Variables:
-	// 		struct _CAR_DATA *retCar; // $t2
-	// 		struct _CAR_DATA *lcp; // $t0
+	// 		CAR_DATA *retCar; // $t2
+	// 		CAR_DATA *lcp; // $t0
 	// 		unsigned int retDistSq; // $t1
 	// 		int distSq; // $v0
 	// 		int dx; // $a0
@@ -201,12 +214,12 @@ int InitCar(_CAR_DATA* cp, int direction, long(*startPos)[4], unsigned char cont
 	// End Line: 6498
 
 // [D] [T]
-_CAR_DATA* FindClosestCar(int x, int y, int z, int* distToCarSq)
+CAR_DATA* FindClosestCar(int x, int y, int z, int* distToCarSq)
 {
 	uint distSq;
-	_CAR_DATA* lcp;
+	CAR_DATA* lcp;
 	uint retDistSq;
-	_CAR_DATA* retCar;
+	CAR_DATA* retCar;
 	int dx; // $a0
 	int dz; // $v1
 
@@ -248,7 +261,7 @@ _CAR_DATA* FindClosestCar(int x, int y, int z, int* distToCarSq)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ NotTravellingAlongCurve(int x /*$a0*/, int z /*$a1*/, int dir /*$s0*/, struct DRIVER2_CURVE *cv /*$a3*/)
+// int /*$ra*/ NotTravellingAlongCurve(int x /*$a0*/, int z /*$a1*/, int dir /*$s0*/, DRIVER2_CURVE *cv /*$a3*/)
  // line 918, offset 0x0002d24c
 	/* begin block 1 */
 		// Start line: 919
@@ -286,7 +299,7 @@ int NotTravellingAlongCurve(int x, int z, int dir, DRIVER2_CURVE* cv)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ CivCarFX(struct _CAR_DATA *cp /*$s0*/)
+// void /*$ra*/ CivCarFX(CAR_DATA *cp /*$s0*/)
  // line 930, offset 0x0002d084
 	/* begin block 1 */
 		// Start line: 1860
@@ -294,7 +307,7 @@ int NotTravellingAlongCurve(int x, int z, int dir, DRIVER2_CURVE* cv)
 	// End Line: 1861
 
 // [D] [T]
-void CivCarFX(_CAR_DATA* cp)
+void CivCarFX(CAR_DATA* cp)
 {
 	if (cp->ai.c.thrustState != 3)
 	{
@@ -314,7 +327,7 @@ void CivCarFX(_CAR_DATA* cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ GetNextRoadInfo(struct _CAR_DATA *cp /*$s7*/, int randomExit /*$a1*/, int *turnAngle /*stack 8*/, int *startDist /*stack 12*/, struct CIV_ROUTE_ENTRY *oldNode /*stack 16*/)
+// int /*$ra*/ GetNextRoadInfo(CAR_DATA *cp /*$s7*/, int randomExit /*$a1*/, int *turnAngle /*stack 8*/, int *startDist /*stack 12*/, CIV_ROUTE_ENTRY *oldNode /*stack 16*/)
  // line 981, offset 0x00024028
 	/* begin block 1 */
 		// Start line: 982
@@ -329,11 +342,11 @@ void CivCarFX(_CAR_DATA* cp)
 	// 		int newNumLanes; // $a3
 	// 		int newDir; // stack offset -84
 	// 		int oppDir; // $s0
-	// 		struct DRIVER2_JUNCTION *jn; // $t5
-	// 		struct DRIVER2_CURVE *cv; // $s1
-	// 		struct DRIVER2_STRAIGHT *st; // $s5
-	// 		struct DRIVER2_STRAIGHT *tmpSt; // $a2
-	// 		struct DRIVER2_CURVE *tmpCv; // $s1
+	// 		DRIVER2_JUNCTION *jn; // $t5
+	// 		DRIVER2_CURVE *cv; // $s1
+	// 		DRIVER2_STRAIGHT *st; // $s5
+	// 		DRIVER2_STRAIGHT *tmpSt; // $a2
+	// 		DRIVER2_CURVE *tmpCv; // $s1
 	// 		short *jnExit; // $a2
 	// 		int newLane; // $s2
 	// 		char leftLane; // stack offset -80
@@ -374,7 +387,7 @@ void CivCarFX(_CAR_DATA* cp)
 			// 		int x; // $v1
 			// 		int z; // $v0
 			// 		int dir; // stack offset -84
-			// 		struct DRIVER2_CURVE *cv; // $s1
+			// 		DRIVER2_CURVE *cv; // $s1
 
 				/* begin block 1.1.2.1 */
 					// Start line: 1091
@@ -427,11 +440,11 @@ void CivCarFX(_CAR_DATA* cp)
 				// Start line: 982
 				// Start offset: 0x000251EC
 				// Variables:
-			// 		struct DRIVER2_JUNCTION *jn; // $t5
+			// 		DRIVER2_JUNCTION *jn; // $t5
 			// 		int currentExit; // $a2
 			// 		int turnAngle; // $t1
-			// 		struct _CAR_DATA *cp; // $s7
-			// 		struct CIV_ROUTE_ENTRY *oldNode; // $t7
+			// 		CAR_DATA *cp; // $s7
+			// 		CIV_ROUTE_ENTRY *oldNode; // $t7
 
 				/* begin block 1.1.4.1 */
 					// Start line: 982
@@ -458,7 +471,7 @@ void CivCarFX(_CAR_DATA* cp)
 				// 		int x; // $v1
 				// 		int z; // $v0
 				// 		int dir; // stack offset -84
-				// 		struct DRIVER2_CURVE *cv; // $s1
+				// 		DRIVER2_CURVE *cv; // $s1
 
 					/* begin block 1.1.5.1.1 */
 						// Start line: 1173
@@ -509,7 +522,7 @@ void CivCarFX(_CAR_DATA* cp)
 					// Variables:
 				// 		int x; // $v1
 				// 		int z; // $v0
-				// 		struct DRIVER2_CURVE *cv; // $s1
+				// 		DRIVER2_CURVE *cv; // $s1
 
 					/* begin block 1.2.2.1.1 */
 						// Start line: 1286
@@ -544,7 +557,7 @@ void CivCarFX(_CAR_DATA* cp)
 
 // [D] [T]
 // BUGS: sometimes not getting right lane when road direction switched
-int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDist, CIV_ROUTE_ENTRY* oldNode)
+int GetNextRoadInfo(CAR_DATA* cp, int randomExit, int* turnAngle, int* startDist, CIV_ROUTE_ENTRY* oldNode)
 {
 	unsigned long junctionFlags;
 	DRIVER2_JUNCTION* jn;
@@ -580,10 +593,7 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 		int widthInLanes;
 		int laneNo;
 		int count;
-		int junctionIdx;
 
-		junctionIdx = -1;
-		
 		widthInLanes = ROAD_WIDTH_IN_LANES(&currentRoadInfo);
 
 		currentLaneDir = ROAD_LANE_DIR(&currentRoadInfo, cp->ai.c.currentLane);
@@ -907,38 +917,9 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 		{
 			cp->ai.c.ctrlState = 0;
 
-			if ((junctionFlags & 1) == 0)
+			if (junctionFlags & 1)
 			{
-				int yield = 0;
-
-				if (exitFrom == 0 || exitFrom == 2)
-					yield = 1;
-
-				if ((junctionFlags & 2) == 0)
-				{
-					cp->ai.c.ctrlState = 4;
-
-					if (!yield)
-						cp->ai.c.ctrlNode = oldNode;
-					else if (*turnAngle != 0)
-						cp->ai.c.ctrlNode = oldNode;
-					else
-						cp->ai.c.ctrlState = 6;
-				}
-				else
-				{
-					cp->ai.c.ctrlState = 4;
-
-					if (yield)
-						cp->ai.c.ctrlNode = oldNode;
-					else if (*turnAngle != 0)
-						cp->ai.c.ctrlNode = oldNode;
-					else
-						cp->ai.c.ctrlState = 6;
-				}
-			}
-			else
-			{
+				// wait for traffic light
 				cp->ai.c.trafficLightPhaseId = (exitFrom & 1);
 				cp->ai.c.ctrlState = 1;
 
@@ -951,6 +932,36 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 				}
 				else
 					cp->ai.c.ctrlNode = oldNode;
+			}
+			else
+			{
+				int yield = 0;
+
+				if (exitFrom == 0 || exitFrom == 2)
+					yield = 1;
+
+				if (junctionFlags & 2)
+				{
+					cp->ai.c.ctrlState = 4;
+
+					if (yield)
+						cp->ai.c.ctrlNode = oldNode;
+					else if (*turnAngle != 0)
+						cp->ai.c.ctrlNode = oldNode;
+					else
+						cp->ai.c.ctrlState = 6;
+				}
+				else
+				{
+					cp->ai.c.ctrlState = 4;
+
+					if (!yield)
+						cp->ai.c.ctrlNode = oldNode;
+					else if (*turnAngle != 0)
+						cp->ai.c.ctrlNode = oldNode;
+					else
+						cp->ai.c.ctrlState = 6;
+				}
 			}
 		}
 
@@ -1107,6 +1118,13 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 
 		*turnAngle = 0;
 		newExit = -1;
+		numExits = 0;
+		
+		if (tmpNewRoad[0] != -1)
+			numExits++;
+		
+		if (tmpNewRoad[1] != -1)
+			numExits++;
 
 		// check the connections
 		// determine new lanes on possible new roads based on the old node position
@@ -1126,38 +1144,11 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 					// determine new lane by old node position
 					if(roadInfo.straight)
 					{
-						int laneNo;
-						int count;
-						
 						dx = (oldNode->x - roadInfo.straight->Midx);
 						dz = (oldNode->z - roadInfo.straight->Midz);
 
-						//test555 = dx * rcossin_tbl[(roadInfo.straight->angle & 0xfff) * 2 + 1] - dz * rcossin_tbl[(roadInfo.straight->angle & 0xfff) * 2];
-						//test42 = ROAD_LANES_COUNT(&roadInfo) - (FIXEDH(test555) + 512 >> 9);
-
 						tmpStr[roadCnt] = roadInfo.straight;
 						tmpNewLane[roadCnt] = ROAD_LANES_COUNT(&roadInfo) - (FIXEDH(dx * rcossin_tbl[(roadInfo.straight->angle & 0xfff) * 2 + 1] - dz * rcossin_tbl[(roadInfo.straight->angle & 0xfff) * 2]) + 512 >> 9);
-
-						// [A] I don't think that is needed
-
-						count = numLanes;
-						laneNo = numLanes;
-						do
-						{
-							if (ROAD_IS_AI_LANE(&roadInfo, count) && !ROAD_IS_PARKING_ALLOWED_AT(&roadInfo, count))
-							{
-								// this line below needed because fucking compiler seem to be omitting it completely
-								test42 = (ROAD_LANE_DIR(&roadInfo, count) ^ 1) & 1;
-								laneNo = count;
-							}
-							count--;
-						} while (count >= 0);
-
-						if (laneNo < 0 || laneNo >= numLanes)
-						{
-							laneFit[roadCnt] = 666;
-							continue;
-						}
 
 					}
 					else
@@ -1168,6 +1159,17 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 						tmpCrv[roadCnt] = roadInfo.curve;
 						tmpNewLane[roadCnt] = (SquareRoot0(dx * dx + dz * dz) >> 9) - roadInfo.curve->inside * 2;
 					}
+				}
+
+				// [A] if there are more than one connections we check the bounds strictly
+				if(numExits > 1)
+				{
+					if (tmpNewLane[roadCnt] < 0 || tmpNewLane[roadCnt] >= numLanes)
+					{
+						laneFit[roadCnt] = 666;
+						continue;
+					}
+					numExits--;	// there has to be one exit
 				}
 
 				// fit new lane
@@ -1206,133 +1208,11 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 	
 		newRoad = tmpNewRoad[newExit];
 		newLane = tmpNewLane[newExit];
-
+		
 		if (cp->ai.c.ctrlState != 7)
 		{
-			int laneFromLeft, laneFromRight;
-
-			if (GetSurfaceRoadInfo(&roadInfo, newRoad))
-			{
-				int numLanes;
-				int count;
-				int laneDirCorrect;
-	
-				laneDirCorrect = ROAD_LANE_DIR(&roadInfo, newLane);
-				numLanes = ROAD_WIDTH_IN_LANES(&roadInfo);
-				
-				if(roadInfo.straight)
-				{
-					oppDir = (oldNode->dir - roadInfo.straight->angle) + 0x400U & 0x800 > 0;
-				}
-				else
-				{
-					int dx, dz;
-					dx = oldNode->x - roadInfo.curve->Midx;
-					dz = oldNode->z - roadInfo.curve->Midz;
-
-					oppDir = (((oldNode->dir - ratan2(dx, dz)) + 0x800U & 0xfff) - 0x800) < 1;
-				}
-
-				// road width might be changed too, so we have to clamp it
-				if (laneDirCorrect != oppDir) //  && ROAD_WIDTH_IN_LANES(&currentRoadInfo) != numLanes)
-				{
-					// find drivable leftmost and rightmost lane
-					laneFromLeft = numLanes;
-					laneFromRight = -1;
-
-					count = numLanes;
-
-					do
-					{
-						if (ROAD_IS_AI_LANE(&roadInfo, count) && !ROAD_IS_PARKING_ALLOWED_AT(&roadInfo, count))
-						{
-							test42 = (ROAD_LANE_DIR(&roadInfo, count) ^ 1) & 1;
-
-							if (test42 == 0)
-								break;
-
-							if (oppDir == 0)
-							{
-								laneFromLeft = count;
-								break;
-							}
-						}
-
-						count--;
-					} while (count >= 0);
-
-					count = ROAD_HAS_FAST_LANES(&roadInfo);
-
-					while (count < numLanes)
-					{
-						if (ROAD_IS_AI_LANE(&roadInfo, count) && !ROAD_IS_PARKING_ALLOWED_AT(&roadInfo, count))
-						{
-							test555 = (ROAD_LANE_DIR(&roadInfo, count) ^ 1) & 1;
-							laneFromRight = count;
-
-							if (test555 == 0)
-							{
-								if (oppDir != 0) // bVar4
-									break;
-							}
-							else
-							{
-								if (oppDir == 0) // !bVar4
-									break;
-							}
-						}
-
-						count++;
-						laneFromRight = numLanes;
-					}
-
-					if (laneFromLeft < 0)
-						laneFromLeft = 42;
-
-					if (laneFromRight >= numLanes)
-						laneFromRight = 42;
-
-					if (laneFromLeft == 42 && laneFromRight == 42)
-					{
-						CIV_STATE_SET_CONFUSED(cp);
-						return 0;
-					}
-
-					// swap
-					if (ABS(laneFromRight - newLane) >= ABS(laneFromLeft - newLane))
-					{
-						int tmp = laneFromRight;
-						laneFromRight = laneFromLeft;
-						laneFromLeft = tmp;
-					}
-					/*
-					// it doesn't work well
-					laneFit[newExit] = laneFromRight;
-
-					if (laneFromRight > -1)
-					{
-						if (laneFromRight > numLanes - 1)
-							laneFit[newExit] = laneFromRight - numLanes - 1;
-						else
-							laneFit[newExit] = 0;
-					}
-
-					// [A] IDK... this is bugged. Might get back to it any time
-
-					int oldLane = newLane;
-
-					if (laneFromRight >= numLanes - 1)
-						newLane = numLanes - 1;
-					//else
-					//	newLane = laneFromRight;
-
-					if (newLane < 0)
-						newLane = 0;
-					*/
-					
-				}
-			}
-
+			// [A] removed old lane fitting code
+			
 			if (laneFit[newExit] != 0)
 			{
 				cp->ai.c.turnNode = GET_NODE_ID(cp, GET_NEXT_NODE(cp, oldNode));
@@ -1386,14 +1266,14 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ InitNodeList(struct _CAR_DATA *cp /*$s6*/, char *extraData /*$s7*/)
+// void /*$ra*/ InitNodeList(CAR_DATA *cp /*$s6*/, char *extraData /*$s7*/)
  // line 1365, offset 0x00026964
 	/* begin block 1 */
 		// Start line: 1366
 		// Start offset: 0x00026964
 		// Variables:
 	// 		int i; // $v1
-	// 		struct CIV_ROUTE_ENTRY *cr; // $s5
+	// 		CIV_ROUTE_ENTRY *cr; // $s5
 	// 		int dx; // $s1
 	// 		int dz; // $s2
 	// 		int surfInd; // $s4
@@ -1404,7 +1284,7 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 			// Variables:
 		// 		int theta; // $s0
 		// 		int laneDist; // $s1
-		// 		struct DRIVER2_STRAIGHT *str; // $s3
+		// 		DRIVER2_STRAIGHT *str; // $s3
 		/* end block 1.1 */
 		// End offset: 0x00026B60
 		// End Line: 1406
@@ -1413,7 +1293,7 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 			// Start line: 1411
 			// Start offset: 0x00026B9C
 			// Variables:
-		// 		struct DRIVER2_CURVE *crv; // $s0
+		// 		DRIVER2_CURVE *crv; // $s0
 		/* end block 1.2 */
 		// End offset: 0x00026C4C
 		// End Line: 1415
@@ -1432,7 +1312,7 @@ int GetNextRoadInfo(_CAR_DATA* cp, int randomExit, int* turnAngle, int* startDis
 	// End Line: 2989
 
 // [D] [T]
-void InitNodeList(_CAR_DATA* cp, EXTRA_CIV_DATA* extraData)
+void InitNodeList(CAR_DATA* cp, EXTRA_CIV_DATA* extraData)
 {
 	int dx; // $s1
 	int dz; // $s2
@@ -1517,7 +1397,7 @@ void InitNodeList(_CAR_DATA* cp, EXTRA_CIV_DATA* extraData)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ GetNodePos(struct DRIVER2_STRAIGHT *straight /*$t1*/, struct DRIVER2_JUNCTION *junction /*$a1*/, struct DRIVER2_CURVE *curve /*$t0*/, int distAlongPath /*$a3*/, struct _CAR_DATA *cp /*stack 16*/, int *x /*stack 20*/, int *z /*stack 24*/, int laneNo /*stack 28*/)
+// int /*$ra*/ GetNodePos(DRIVER2_STRAIGHT *straight /*$t1*/, DRIVER2_JUNCTION *junction /*$a1*/, DRIVER2_CURVE *curve /*$t0*/, int distAlongPath /*$a3*/, CAR_DATA *cp /*stack 16*/, int *x /*stack 20*/, int *z /*stack 24*/, int laneNo /*stack 28*/)
  // line 1441, offset 0x00026cac
 	/* begin block 1 */
 		// Start line: 1442
@@ -1542,7 +1422,7 @@ void InitNodeList(_CAR_DATA* cp, EXTRA_CIV_DATA* extraData)
 
 
 // [D] [T]
-int GetNodePos(DRIVER2_STRAIGHT* straight, DRIVER2_JUNCTION* junction, DRIVER2_CURVE* curve, int distAlongPath, _CAR_DATA* cp, int* x, int* z, int laneNo)
+int GetNodePos(DRIVER2_STRAIGHT* straight, DRIVER2_JUNCTION* junction, DRIVER2_CURVE* curve, int distAlongPath, CAR_DATA* cp, int* x, int* z, int laneNo)
 {
 	unsigned char oldLane;
 	unsigned char changeLaneCount;
@@ -1622,7 +1502,7 @@ int GetNodePos(DRIVER2_STRAIGHT* straight, DRIVER2_JUNCTION* junction, DRIVER2_C
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CheckChangeLanes(struct DRIVER2_STRAIGHT *straight /*$s4*/, struct DRIVER2_CURVE *curve /*$s6*/, int distAlongSegment /*$a2*/, struct _CAR_DATA *cp /*$s3*/, int tryToPark /*stack 16*/)
+// int /*$ra*/ CheckChangeLanes(DRIVER2_STRAIGHT *straight /*$s4*/, DRIVER2_CURVE *curve /*$s6*/, int distAlongSegment /*$a2*/, CAR_DATA *cp /*$s3*/, int tryToPark /*stack 16*/)
  // line 1507, offset 0x00026f20
 	/* begin block 1 */
 		// Start line: 1508
@@ -1634,14 +1514,14 @@ int GetNodePos(DRIVER2_STRAIGHT* straight, DRIVER2_JUNCTION* junction, DRIVER2_C
 	// 		unsigned char canProceed; // stack offset -88
 	// 		unsigned char travelAlongRoad; // $s5
 	// 		unsigned char turnRight; // stack offset -84
-	// 		struct _CAR_DATA *cp1; // $s0
-	// 		struct CIV_ROUTE_ENTRY tmpNode; // stack offset -120
+	// 		CAR_DATA *cp1; // $s0
+	// 		CIV_ROUTE_ENTRY tmpNode; // stack offset -120
 
 		/* begin block 1.1 */
 			// Start line: 1572
 			// Start offset: 0x00027290
 			// Variables:
-		// 		struct VECTOR pos; // stack offset -104
+		// 		VECTOR pos; // stack offset -104
 		// 		int theta; // $a0
 		// 		int length; // $a1
 
@@ -1674,7 +1554,7 @@ int GetNodePos(DRIVER2_STRAIGHT* straight, DRIVER2_JUNCTION* junction, DRIVER2_C
 	// End Line: 3338
 
 // [D] [T]
-int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distAlongSegment, _CAR_DATA* cp, int tryToPark)
+int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distAlongSegment, CAR_DATA* cp, int tryToPark)
 {
 	int oldLane;
 	int currentLane;
@@ -1685,7 +1565,7 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 	int dz;
 	uint theta;
 	int length;
-	_CAR_DATA* lcp;
+	CAR_DATA* lcp;
 
 	int oldLaneDir;
 	VECTOR pos;
@@ -1836,7 +1716,7 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CreateNewNode(struct _CAR_DATA *cp /*$s4*/)
+// int /*$ra*/ CreateNewNode(CAR_DATA *cp /*$s4*/)
 	// line 1637, offset 0x00027530
 	/* begin block 1 */
 		// Start line: 1638
@@ -1844,24 +1724,24 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 		// Variables:
 	// 		int oldRoad; // $s1
 	// 		int cr; // $a3
-	// 		struct CIV_ROUTE_ENTRY *newNode; // $s6
-	// 		struct CIV_ROUTE_ENTRY *oldNode; // $s3
-	// 		struct DRIVER2_CURVE *curve; // $s0
-	// 		struct DRIVER2_STRAIGHT *straight; // $s5
+	// 		CIV_ROUTE_ENTRY *newNode; // $s6
+	// 		CIV_ROUTE_ENTRY *oldNode; // $s3
+	// 		DRIVER2_CURVE *curve; // $s0
+	// 		DRIVER2_STRAIGHT *straight; // $s5
 	// 		int turnAngle; // stack offset -56
 
 		/* begin block 1.1 */
 			// Start line: 1638
 			// Start offset: 0x00027530
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s4
-		// 		struct CIV_ROUTE_ENTRY *currentNode; // $v1
+		// 		CAR_DATA *cp; // $s4
+		// 		CIV_ROUTE_ENTRY *currentNode; // $v1
 
 			/* begin block 1.1.1 */
 				// Start line: 1638
 				// Start offset: 0x00027530
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+			// 		CIV_ROUTE_ENTRY *retNode; // $a0
 			/* end block 1.1.1 */
 			// End offset: 0x0002757C
 			// End Line: 1638
@@ -1873,13 +1753,13 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 			// Start line: 1638
 			// Start offset: 0x0002758C
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s4
+		// 		CAR_DATA *cp; // $s4
 
 			/* begin block 1.2.1 */
 				// Start line: 1638
 				// Start offset: 0x0002758C
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+			// 		CIV_ROUTE_ENTRY *retNode; // $a0
 			/* end block 1.2.1 */
 			// End offset: 0x0002759C
 			// End Line: 1638
@@ -1891,13 +1771,13 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 			// Start line: 1638
 			// Start offset: 0x000275A8
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s4
+		// 		CAR_DATA *cp; // $s4
 
 			/* begin block 1.3.1 */
 				// Start line: 1638
 				// Start offset: 0x000275A8
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+			// 		CIV_ROUTE_ENTRY *retNode; // $a0
 			/* end block 1.3.1 */
 			// End offset: 0x000275B8
 			// End Line: 1638
@@ -1909,13 +1789,13 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 			// Start line: 1638
 			// Start offset: 0x000275C4
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s4
+		// 		CAR_DATA *cp; // $s4
 
 			/* begin block 1.4.1 */
 				// Start line: 1638
 				// Start offset: 0x000275C4
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+			// 		CIV_ROUTE_ENTRY *retNode; // $a0
 			/* end block 1.4.1 */
 			// End offset: 0x000275D4
 			// End Line: 1638
@@ -1927,14 +1807,14 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 			// Start line: 1653
 			// Start offset: 0x000275F0
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s4
-		// 		struct CIV_ROUTE_ENTRY *currentNode; // $s3
+		// 		CAR_DATA *cp; // $s4
+		// 		CIV_ROUTE_ENTRY *currentNode; // $s3
 
 			/* begin block 1.5.1 */
 				// Start line: 1653
 				// Start offset: 0x000275F0
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+			// 		CIV_ROUTE_ENTRY *retNode; // $v1
 			/* end block 1.5.1 */
 			// End offset: 0x000275F0
 			// End Line: 1653
@@ -1950,13 +1830,13 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 				// Start line: 1638
 				// Start offset: 0x000275F0
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s4
+			// 		CAR_DATA *cp; // $s4
 
 				/* begin block 1.6.1.1 */
 					// Start line: 1638
 					// Start offset: 0x000275F0
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.6.1.1 */
 				// End offset: 0x00027600
 				// End Line: 1638
@@ -1971,14 +1851,14 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 			// Start line: 1659
 			// Start offset: 0x00027634
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s4
-		// 		struct CIV_ROUTE_ENTRY *currentNode; // $s3
+		// 		CAR_DATA *cp; // $s4
+		// 		CIV_ROUTE_ENTRY *currentNode; // $s3
 
 			/* begin block 1.7.1 */
 				// Start line: 1659
 				// Start offset: 0x00027634
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $s2
+			// 		CIV_ROUTE_ENTRY *retNode; // $s2
 			/* end block 1.7.1 */
 			// End offset: 0x0002764C
 			// End Line: 1659
@@ -2028,7 +1908,7 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 			// Start line: 1717
 			// Start offset: 0x00027A18
 			// Variables:
-		// 		struct CIV_ROUTE_ENTRY tmpNode; // stack offset -72
+		// 		CIV_ROUTE_ENTRY tmpNode; // stack offset -72
 
 			/* begin block 1.10.1 */
 				// Start line: 1721
@@ -2043,7 +1923,7 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 				// Start line: 1739
 				// Start offset: 0x00027B90
 				// Variables:
-			// 		struct _CAR_DATA *playerCar; // $v0
+			// 		CAR_DATA *playerCar; // $v0
 			// 		int dx; // $v1
 			// 		int dz; // $a0
 			/* end block 1.10.2 */
@@ -2074,13 +1954,13 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 					// Start line: 1789
 					// Start offset: 0x00027EBC
 					// Variables:
-				// 		struct _CAR_DATA *cp; // $s4
+				// 		CAR_DATA *cp; // $s4
 
 					/* begin block 1.10.4.1.1 */
 						// Start line: 1789
 						// Start offset: 0x00027EBC
 						// Variables:
-					// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+					// 		CIV_ROUTE_ENTRY *retNode; // $a0
 					/* end block 1.10.4.1.1 */
 					// End offset: 0x00027F44
 					// End Line: 1792
@@ -2092,13 +1972,13 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 					// Start line: 1800
 					// Start offset: 0x00027F78
 					// Variables:
-				// 		struct _CAR_DATA *cp; // $s4
+				// 		CAR_DATA *cp; // $s4
 
 					/* begin block 1.10.4.2.1 */
 						// Start line: 1800
 						// Start offset: 0x00027F78
 						// Variables:
-					// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+					// 		CIV_ROUTE_ENTRY *retNode; // $a0
 					/* end block 1.10.4.2.1 */
 					// End offset: 0x0002800C
 					// End Line: 1803
@@ -2117,14 +1997,14 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 					// Start line: 1638
 					// Start offset: 0x0002800C
 					// Variables:
-				// 		struct _CAR_DATA *cp; // $s4
-				// 		struct CIV_ROUTE_ENTRY *currentNode; // $s6
+				// 		CAR_DATA *cp; // $s4
+				// 		CIV_ROUTE_ENTRY *currentNode; // $s6
 
 					/* begin block 1.10.5.1.1 */
 						// Start line: 1638
 						// Start offset: 0x0002800C
 						// Variables:
-					// 		struct CIV_ROUTE_ENTRY *retNode; // $v0
+					// 		CIV_ROUTE_ENTRY *retNode; // $v0
 					/* end block 1.10.5.1.1 */
 					// End offset: 0x0002800C
 					// End Line: 1638
@@ -2156,7 +2036,7 @@ int CheckChangeLanes(DRIVER2_STRAIGHT* straight, DRIVER2_CURVE* curve, int distA
 int makeNextNodeCtrlNode = -1;
 
 // [D] [T]
-int CreateNewNode(_CAR_DATA * cp)
+int CreateNewNode(CAR_DATA * cp)
 {
 	CIV_ROUTE_ENTRY* start;
 	CIV_ROUTE_ENTRY* newNode;
@@ -2290,7 +2170,7 @@ int CreateNewNode(_CAR_DATA * cp)
 					if (gCurrentMissionNumber == 33 && cp->ap.model == 4)
 					{
 						int dx, dz;
-						_CAR_DATA* playerCar = &car_data[player[0].playerCarId];
+						CAR_DATA* playerCar = &car_data[player[0].playerCarId];
 
 						dx = playerCar->hd.where.t[0] - cp->hd.where.t[0];
 						dz = playerCar->hd.where.t[1] - cp->hd.where.t[1];
@@ -2369,8 +2249,8 @@ int CreateNewNode(_CAR_DATA * cp)
 						if (tmp > 0)
 						{
 							newNode->x = start->x + FIXEDH(tmp * rcossin_tbl[(start->dir & 0xfff) * 2]);
-
 							newNode->z = start->z + FIXEDH(tmp * rcossin_tbl[(start->dir & 0xfff) * 2 + 1]);
+
 							newNode->pathType = 1;
 							newNode->dir = start->dir;
 
@@ -2384,6 +2264,7 @@ int CreateNewNode(_CAR_DATA * cp)
 						{
 							retNode->x = tempNode.x + FIXEDH(tmp * rcossin_tbl[(tempNode.dir & 0xfff) * 2]);
 							retNode->z = tempNode.z + FIXEDH(tmp * rcossin_tbl[(tempNode.dir & 0xfff) * 2 + 1]);
+
 							retNode->pathType = 1;
 							retNode->dir = tempNode.dir;
 
@@ -2398,13 +2279,9 @@ int CreateNewNode(_CAR_DATA * cp)
 						newNode->pathType = tempNode.pathType;
 						newNode->distAlongSegment = tempNode.distAlongSegment;
 						newNode->x = tempNode.x;
-
-						if (tempNode.x < 0)
-							tempNode.x = -tempNode.x;
-
 						newNode->z = tempNode.z;
 
-						if (tempNode.x < 600000)
+						if (ABS(tempNode.x) < 600000)
 						{
 							if (turnAngle != 0)
 							{
@@ -2413,6 +2290,7 @@ int CreateNewNode(_CAR_DATA * cp)
 							}
 
 							newNode->pathType = 1;
+
 							return 1;
 						}
 					}
@@ -2437,13 +2315,13 @@ int CreateNewNode(_CAR_DATA * cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ InitCivState(struct _CAR_DATA *cp /*$s1*/, char *extraData /*$s2*/)
+// int /*$ra*/ InitCivState(CAR_DATA *cp /*$s1*/, char *extraData /*$s2*/)
 	// line 1843, offset 0x000280d8
 	/* begin block 1 */
 		// Start line: 1844
 		// Start offset: 0x000280D8
 		// Variables:
-	// 		struct CIV_STATE *cs; // $s0
+	// 		CIV_STATE *cs; // $s0
 	/* end block 1 */
 	// End offset: 0x000282E8
 	// End Line: 1887
@@ -2459,7 +2337,7 @@ int CreateNewNode(_CAR_DATA * cp)
 	// End Line: 4218
 
 // [D] [T]
-int InitCivState(_CAR_DATA * cp, EXTRA_CIV_DATA * extraData)
+int InitCivState(CAR_DATA * cp, EXTRA_CIV_DATA * extraData)
 {
 	CIV_STATE* cs = &cp->ai.c;
 
@@ -2519,7 +2397,7 @@ int InitCivState(_CAR_DATA * cp, EXTRA_CIV_DATA * extraData)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ PingOutCar(struct _CAR_DATA *cp /*$s0*/)
+// int /*$ra*/ PingOutCar(CAR_DATA *cp /*$s0*/)
 	// line 1977, offset 0x0002cf80
 	/* begin block 1 */
 		// Start line: 7534
@@ -2537,7 +2415,7 @@ int InitCivState(_CAR_DATA * cp, EXTRA_CIV_DATA * extraData)
 	// End Line: 7536
 
 // [D] [T]
-int PingOutCar(_CAR_DATA * cp)
+int PingOutCar(CAR_DATA * cp)
 {
 	testNumPingedOut++;
 
@@ -2559,7 +2437,7 @@ int PingOutCar(_CAR_DATA * cp)
 	if (cp->inform)
 		*cp->inform ^= 0x40000000;
 
-	ClearMem((char*)cp, sizeof(_CAR_DATA));
+	ClearMem((char*)cp, sizeof(CAR_DATA));
 
 	cp->controlType = CONTROL_TYPE_NONE;
 
@@ -2576,13 +2454,13 @@ int PingOutCar(_CAR_DATA * cp)
 		// Start line: 2018
 		// Start offset: 0x000282E8
 		// Variables:
-	// 		struct _CAR_DATA *lcp; // $s0
+	// 		CAR_DATA *lcp; // $s0
 
 		/* begin block 1.1 */
 			// Start line: 2017
 			// Start offset: 0x00028348
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 		/* end block 1.1 */
 		// End offset: 0x000283E4
 		// End Line: 2017
@@ -2616,17 +2494,18 @@ int PingOutCar(_CAR_DATA * cp)
 // used when secret car is requested
 int PingOutAllSpecialCivCars(void)
 {
-	_CAR_DATA* lcp;
+	CAR_DATA* lcp;
 
 	lcp = car_data;
 
+	do
 	{
 		if (lcp->controlType == CONTROL_TYPE_CIV_AI && MissionHeader->residentModels[lcp->ap.model] > 4)
 			PingOutCar(lcp);
 
 		lcp++;
 	}
-	while (lcp < &car_data[MAX_CARS])
+	while (lcp < &car_data[MAX_CARS]);
 
 	return 1;
 }
@@ -2641,13 +2520,13 @@ int PingOutAllSpecialCivCars(void)
 		// Start line: 2030
 		// Start offset: 0x0002840C
 		// Variables:
-	// 		struct _CAR_DATA *lcp; // $s0
+	// 		CAR_DATA *lcp; // $s0
 
 		/* begin block 1.1 */
 			// Start line: 2029
 			// Start offset: 0x0002844C
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 		/* end block 1.1 */
 		// End offset: 0x0002852C
 		// End Line: 2029
@@ -2681,7 +2560,7 @@ int PingOutAllSpecialCivCars(void)
 // used by cutscenes
 int PingOutAllCivCarsAndCopCars(void)
 {
-	_CAR_DATA* cp;
+	CAR_DATA* cp;
 
 	cp = car_data;
 
@@ -2700,7 +2579,7 @@ int PingOutAllCivCarsAndCopCars(void)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CheckPingOut(struct _CAR_DATA *cp /*$s0*/)
+// int /*$ra*/ CheckPingOut(CAR_DATA *cp /*$s0*/)
 	// line 2050, offset 0x00028554
 	/* begin block 1 */
 		// Start line: 2051
@@ -2714,7 +2593,7 @@ int PingOutAllCivCarsAndCopCars(void)
 			// Start line: 2051
 			// Start offset: 0x000285B8
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 		/* end block 1.1 */
 		// End offset: 0x00028694
 		// End Line: 2051
@@ -2740,7 +2619,7 @@ int PingOutAllCivCarsAndCopCars(void)
 // [D] [T]
 // called by civ car.
 // checks distance from player and removes car if too far
-int CheckPingOut(_CAR_DATA * cp)
+int CheckPingOut(CAR_DATA * cp)
 {
 	int dz;
 	int dx;
@@ -2888,22 +2767,33 @@ void InitCivCars(void)
 	roadblockDelay = roadblockDelayDiff[gCopDifficultyLevel] + (Random2(0) & 0xff);
 	PingOutCivsOnly = 0;
 	roadblockCount = roadblockDelay;
+
+	// [A] clear out other values
+	distFurthestCivCarSq = 0;
+	furthestCivID = 0;
+	makeLimoPullOver = 0;
+	limoId = 0;
+	playerNum = 0;
+	roadSeg = 0;
+	testNumPingedOut = 0;
+	currentAngle = 0;
+	closeEncounter = 3;
 }
 
 
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CreateCivCarWotDrivesABitThenStops(int direction /*$s5*/, long (*startPos)[4] /*$s2*/, long (*stopPos)[4] /*$a2*/, unsigned char internalModel /*$s4*/, int palette /*stack 16*/)
+// int /*$ra*/ CreateCivCarWotDrivesABitThenStops(int direction /*$s5*/, LONGVECTOR* startPos /*$s2*/, LONGVECTOR* stopPos /*$a2*/, unsigned char internalModel /*$s4*/, int palette /*stack 16*/)
 	// line 2176, offset 0x000286e0
 	/* begin block 1 */
 		// Start line: 2177
 		// Start offset: 0x000286E0
 		// Variables:
-	// 		struct _EXTRA_CIV_DATA civDat; // stack offset -56
-	// 		struct _CAR_DATA *newCar; // $s1
-	// 		struct CIV_ROUTE_ENTRY *stopNode; // $a0
-	// 		struct CIV_ROUTE_ENTRY *spareNode; // $a1
+	// 		EXTRA_CIV_DATA civDat; // stack offset -56
+	// 		CAR_DATA *newCar; // $s1
+	// 		CIV_ROUTE_ENTRY *stopNode; // $a0
+	// 		CIV_ROUTE_ENTRY *spareNode; // $a1
 
 		/* begin block 1.1 */
 			// Start line: 2177
@@ -2914,7 +2804,7 @@ void InitCivCars(void)
 				// Start offset: 0x000286E0
 				// Variables:
 			// 		char *slot; // $v1
-			// 		struct _CAR_DATA *carCnt; // $a0
+			// 		CAR_DATA *carCnt; // $a0
 			/* end block 1.1.1 */
 			// End offset: 0x00028774
 			// End Line: 2184
@@ -2939,15 +2829,15 @@ const int EVENT_CAR_SPEED = 60;
 const int DistanceTriggerCarMoves = 700; // 5000;
 
 // [D] [T] [A]
-int CreateCivCarWotDrivesABitThenStops(int direction, long(*startPos)[4], long(*stopPos)[4], unsigned char internalModel, int palette)
+int CreateCivCarWotDrivesABitThenStops(int direction, LONGVECTOR* startPos, LONGVECTOR* stopPos, unsigned char internalModel, int palette)
 {
 	unsigned char* slot;
-	_CAR_DATA* carCnt;
-	_CAR_DATA* pNewCar;
+	CAR_DATA* carCnt;
+	CAR_DATA* pNewCar;
 	CIV_ROUTE_ENTRY* stopNode; // $a0
 	CIV_ROUTE_ENTRY* spareNode; // $a1
 
-	_EXTRA_CIV_DATA civDat;
+	EXTRA_CIV_DATA civDat;
 	ClearMem((char*)&civDat, sizeof(civDat));
 
 	carCnt = car_data;
@@ -3015,14 +2905,14 @@ int CreateCivCarWotDrivesABitThenStops(int direction, long(*startPos)[4], long(*
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CreateStationaryCivCar(int direction /*$t4*/, long orientX /*$s2*/, long orientZ /*$s1*/, long (*startPos)[4] /*$a2*/, int externalModel /*stack 16*/, int palette /*stack 20*/, int controlFlags /*stack 24*/)
+// int /*$ra*/ CreateStationaryCivCar(int direction /*$t4*/, long orientX /*$s2*/, long orientZ /*$s1*/, LONGVECTOR* startPos /*$a2*/, int externalModel /*stack 16*/, int palette /*stack 20*/, int controlFlags /*stack 24*/)
 	// line 2248, offset 0x00028960
 	/* begin block 1 */
 		// Start line: 2249
 		// Start offset: 0x00028960
 		// Variables:
-	// 		struct _EXTRA_CIV_DATA civDat; // stack offset -72
-	// 		struct _CAR_DATA *newCar; // $s0
+	// 		EXTRA_CIV_DATA civDat; // stack offset -72
+	// 		CAR_DATA *newCar; // $s0
 	// 		long tmpRes[4]; // stack offset -48
 	// 		long tmpQ[4]; // stack offset -32
 
@@ -3035,7 +2925,7 @@ int CreateCivCarWotDrivesABitThenStops(int direction, long(*startPos)[4], long(*
 				// Start offset: 0x00028A1C
 				// Variables:
 			// 		char *slot; // $v1
-			// 		struct _CAR_DATA *carCnt; // $a0
+			// 		CAR_DATA *carCnt; // $a0
 			/* end block 1.1.1 */
 			// End offset: 0x00028A68
 			// End Line: 2249
@@ -3057,13 +2947,13 @@ int CreateCivCarWotDrivesABitThenStops(int direction, long(*startPos)[4], long(*
 	// End Line: 5132
 
 // [D] [T]
-int CreateStationaryCivCar(int direction, long orientX, long orientZ, long(*startPos)[4], int externalModel, int palette, int controlFlags)
+int CreateStationaryCivCar(int direction, long orientX, long orientZ, LONGVECTOR* startPos, int externalModel, int palette, int controlFlags)
 {
 	unsigned char* slot;
-	_CAR_DATA* newCar;
-	_CAR_DATA* carCnt;
+	CAR_DATA* newCar;
+	CAR_DATA* carCnt;
 	int model;
-	_EXTRA_CIV_DATA civDat;
+	EXTRA_CIV_DATA civDat;
 	long tmpQ[4];
 
 	model = -1;
@@ -3164,13 +3054,13 @@ int CreateStationaryCivCar(int direction, long orientX, long orientZ, long(*star
 		// Start line: 2324
 		// Start offset: 0x00028DB4
 		// Variables:
-	// 		struct _EXTRA_CIV_DATA civDat; // stack offset -128
+	// 		EXTRA_CIV_DATA civDat; // stack offset -128
 	// 		int dir; // stack offset -52
 	// 		int distAlongSegment; // $fp
 	// 		int lane; // $s7
-	// 		struct _CAR_DATA *newCar; // $s1
-	// 		struct DRIVER2_STRAIGHT *str; // $s6
-	// 		struct DRIVER2_CURVE *crv; // $s5
+	// 		CAR_DATA *newCar; // $s1
+	// 		DRIVER2_STRAIGHT *str; // $s6
+	// 		DRIVER2_CURVE *crv; // $s5
 	// 		unsigned char cookieCountStart; // $s4
 	// 		int curveLength; // stack offset -48
 	// 		unsigned char model; // $s4
@@ -3188,7 +3078,7 @@ int CreateStationaryCivCar(int direction, long orientX, long orientZ, long(*star
 				// Start offset: 0x00028EEC
 				// Variables:
 			// 		char *slot; // $a1
-			// 		struct _CAR_DATA *carCnt; // $a0
+			// 		CAR_DATA *carCnt; // $a0
 			/* end block 1.1.1 */
 			// End offset: 0x00028F40
 			// End Line: 2324
@@ -3206,7 +3096,7 @@ int CreateStationaryCivCar(int direction, long orientX, long orientZ, long(*star
 				// Start line: 2324
 				// Start offset: 0x00029058
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s1
+			// 		CAR_DATA *cp; // $s1
 			/* end block 1.2.1 */
 			// End offset: 0x00029140
 			// End Line: 2324
@@ -3292,7 +3182,7 @@ int CreateStationaryCivCar(int direction, long orientX, long orientZ, long(*star
 				// 		int dx; // $a0
 				// 		int distSq; // $v0
 				// 		unsigned int retDistSq; // $a2
-				// 		struct _CAR_DATA *lcp; // $a1
+				// 		CAR_DATA *lcp; // $a1
 				/* end block 1.8.1.1 */
 				// End offset: 0x0002A228
 				// End Line: 2601
@@ -3316,7 +3206,7 @@ int CreateStationaryCivCar(int direction, long orientX, long orientZ, long(*star
 				// 		int dz; // $v1
 				// 		int dx; // $a0
 				// 		int ret; // $t0
-				// 		struct _CAR_DATA *lcp; // $a1
+				// 		CAR_DATA *lcp; // $a1
 				/* end block 1.8.2.1 */
 				// End offset: 0x0002A340
 				// End Line: 2611
@@ -3359,15 +3249,15 @@ int dz = 0; // offset 0xAAB48
 int PingInCivCar(int minPingInDist)
 {
 	int model;
-	_CAR_DATA* carCnt;
-	_CAR_DATA* newCar;
+	CAR_DATA* carCnt;
+	CAR_DATA* newCar;
 	
 	//DRIVER2_CURVE* curve;
 	//DRIVER2_STRAIGHT* straight;
 
 	DRIVER2_ROAD_INFO roadInfo;
 	
-	_EXTRA_CIV_DATA civDat;
+	EXTRA_CIV_DATA civDat;
 	unsigned char possibleLanes[12];
 	// carDistLanes removed as it's unused
 	long pos[4];
@@ -3379,8 +3269,9 @@ int PingInCivCar(int minPingInDist)
 	int lbody;
 	int lane;
 	int i;
-	int oldCookieCount;
+	u_char cookieCountStart;
 	uint retDistSq;
+	unsigned char* slot;
 
 	//straight = NULL;
 	//curve = NULL;
@@ -3407,12 +3298,12 @@ int PingInCivCar(int minPingInDist)
 		tryPingInParkedCars = 1;
 	}
 
-	playerNum = 0;
-
 	if (NumPlayers == 2)
 		playerNum = CameraCnt & 1;
+	else
+		playerNum = 0;
 
-	if ((MissionHeader->type & 4U) != 0)
+	if (MissionHeader->type & 0x4)
 	{
 		PingOutCivsOnly = 1;
 		return 0;
@@ -3455,8 +3346,8 @@ int PingInCivCar(int minPingInDist)
 		if (newCarId == -1)
 			return 0;
 
-		if (newCarId > MAX_CARS - 1)
-			return 0;
+		//if (newCarId > MAX_CARS - 1)
+		//	return 0;
 
 		newCar = &car_data[newCarId];
 
@@ -3490,12 +3381,13 @@ int PingInCivCar(int minPingInDist)
 		// randomized pings
 		int angle;
 		int dx, dz;
-		unsigned char* slot;
-
+		
 		const int maxCookies = requestCopCar ? 55 : 43;
 
 		if (requestCopCar == 0 && cookieCount > 43)
 			cookieCount -= 25;
+
+		cookieCountStart = cookieCount;
 
 		// find a free slot
 		carCnt = car_data;
@@ -3518,16 +3410,16 @@ int PingInCivCar(int minPingInDist)
 			return 0;
 		}
 
-		oldCookieCount = cookieCount;
-
 		do {
 			if (cookieCount < maxCookies)
 				cookieCount++;
 			else
 				cookieCount = 0;
 
-			if (cookieCount == oldCookieCount)
+			if (cookieCount == cookieCountStart)
+			{
 				break;
+			}
 
 			if (requestCopCar == 0)
 			{
@@ -3559,9 +3451,9 @@ int PingInCivCar(int minPingInDist)
 	}
 
 	{
-		int numPossibleLanes;
-		int numLanes;
-		int allowedToPark;
+		volatile int numPossibleLanes;
+		volatile int numLanes;
+		volatile int allowedToPark;
 		
 		if (ROAD_LANES_COUNT(&roadInfo) == 0) // BAD ROAD
 		{
@@ -3695,20 +3587,15 @@ int PingInCivCar(int minPingInDist)
 	}
 	else if (player[0].playerType == 1 && car_data[player[0].playerCarId].ap.model == model)
 	{
-		int rnd;
-		rnd = Random2(0);
+		civDat.palette = Random2(0) % 5; // [A] was % 4; use previously unused palette slot
 
-		civDat.palette = rnd - (rnd / 4) * 4 & 0xff;
-
+		// if player got the same color we better select other
 		if (car_data[player[0].playerCarId].ap.palette <= civDat.palette)
 			civDat.palette++;
 	}
 	else
 	{
-		int rnd;
-		rnd = Random2(0);
-
-		civDat.palette = rnd - (rnd / 5) * 5 & 0xff;
+		civDat.palette = Random2(0) % 6; // [A] was % 5; use previously unused palette slot
 	}
 
 	lbody = car_cosmetics[model].colBox.vz;
@@ -3914,14 +3801,14 @@ int PingInCivCar(int minPingInDist)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AttemptUnPark(struct _CAR_DATA *cp /*$s1*/)
+// void /*$ra*/ AttemptUnPark(CAR_DATA *cp /*$s1*/)
 	// line 2659, offset 0x0002a4c4
 	/* begin block 1 */
 		// Start line: 2660
 		// Start offset: 0x0002A4C4
 		// Variables:
-	// 		struct DRIVER2_STRAIGHT *str; // $s2
-	// 		struct DRIVER2_CURVE *crv; // $s3
+	// 		DRIVER2_STRAIGHT *str; // $s2
+	// 		DRIVER2_CURVE *crv; // $s3
 	/* end block 1 */
 	// End offset: 0x0002A5FC
 	// End Line: 2690
@@ -3942,7 +3829,7 @@ int PingInCivCar(int minPingInDist)
 	// End Line: 6116
 
 // [D] [T]
-void AttemptUnPark(_CAR_DATA * cp)
+void AttemptUnPark(CAR_DATA * cp)
 {
 	unsigned char oldLane;
 	DRIVER2_ROAD_INFO roadInfo;
@@ -3967,7 +3854,7 @@ void AttemptUnPark(_CAR_DATA * cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CivControl(struct _CAR_DATA *cp /*$s0*/)
+// int /*$ra*/ CivControl(CAR_DATA *cp /*$s0*/)
 	// line 2699, offset 0x0002ce10
 	/* begin block 1 */
 		// Start line: 2700
@@ -4001,7 +3888,7 @@ void AttemptUnPark(_CAR_DATA * cp)
 	// End Line: 8190
 
 // [D] [T]
-int CivControl(_CAR_DATA * cp)
+int CivControl(CAR_DATA * cp)
 {
 	CheckPingOut(cp);
 
@@ -4084,6 +3971,11 @@ int CivControl(_CAR_DATA * cp)
 
 						VECTOR b1p = { pn->x, cp->hd.where.t[1], pn->z };
 
+						if (pn->pathType == 2)
+						{
+							ofs.vy = 1000;
+						}
+
 						//Debug_AddLineOfs(_zero, _up, b1p, rrcv);
 						Debug_AddLineOfs(_zero, ofs, b1p, rrcv);
 					}
@@ -4142,7 +4034,7 @@ int CivControl(_CAR_DATA * cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CivAccelTrafficRules(struct _CAR_DATA *cp /*$t3*/, int *distToNode /*$a1*/)
+// int /*$ra*/ CivAccelTrafficRules(CAR_DATA *cp /*$t3*/, int *distToNode /*$a1*/)
 	// line 2798, offset 0x0002a5fc
 	/* begin block 1 */
 		// Start line: 2799
@@ -4150,7 +4042,7 @@ int CivControl(_CAR_DATA * cp)
 		// Variables:
 	// 		int lbody; // $t1
 	// 		int wbody; // $t2
-	// 		struct CIV_STATE *cs; // $a2
+	// 		CIV_STATE *cs; // $a2
 
 		/* begin block 1.1 */
 			// Start line: 2844
@@ -4203,13 +4095,13 @@ int CivControl(_CAR_DATA * cp)
 				// Start line: 2932
 				// Start offset: 0x0002AA0C
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $t3
+			// 		CAR_DATA *cp; // $t3
 
 				/* begin block 1.3.1.1 */
 					// Start line: 2932
 					// Start offset: 0x0002AA0C
 					// Variables:
-				// 		struct _CAR_DATA *lcp; // $a3
+				// 		CAR_DATA *lcp; // $a3
 				// 		int normal; // $v0
 				// 		int tangent; // $a0
 				// 		int distToObstacle; // $t0
@@ -4226,13 +4118,13 @@ int CivControl(_CAR_DATA * cp)
 				// Start line: 2799
 				// Start offset: 0x0002AB44
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $t3
+			// 		CAR_DATA *cp; // $t3
 
 				/* begin block 1.3.2.1 */
 					// Start line: 2799
 					// Start offset: 0x0002AB44
 					// Variables:
-				// 		struct CIV_STATE *cs; // $v1
+				// 		CIV_STATE *cs; // $v1
 				/* end block 1.3.2.1 */
 				// End offset: 0x0002AB44
 				// End Line: 2799
@@ -4271,10 +4163,10 @@ int carnum = 0;
 const int newAccel = 2000;
 
 // [D] [T]
-int CivAccelTrafficRules(_CAR_DATA * cp, int* distToNode)
+int CivAccelTrafficRules(CAR_DATA * cp, int* distToNode)
 {
 	CAR_COSMETICS* car_cos;
-	_CAR_DATA* lcp;
+	CAR_DATA* lcp;
 	int tangent;
 	int normal;
 	int lbody;
@@ -4293,77 +4185,68 @@ int CivAccelTrafficRules(_CAR_DATA * cp, int* distToNode)
 
 	switch (cp->ai.c.thrustState)
 	{
-	case 0:
-	{
-		cp->ai.c.brakeLight = 0;
-
-		if (cp->ai.c.ctrlNode)
+		case 0:
 		{
-			int properVel;
-			int brakeDist;
+			cp->ai.c.brakeLight = 0;
 
-			if (!IS_NODE_VALID(cp, cp->ai.c.ctrlNode))
+			if (cp->ai.c.ctrlNode)
 			{
-				CIV_STATE_SET_CONFUSED(cp);
-				return 0;
-			}
+				int properVel;
+				int brakeDist;
 
-			properVel = cp->hd.wheel_speed;
-			brakeDist = (properVel * FIXEDH(properVel)) / (newAccel * 2);
-
-			if (ABS(brakeDist) > * distToNode)
-			{
-				properVel -= 120000;
-				brakeDist = *distToNode - lbody * 3;
-
-				if (brakeDist < 0)
+				if (!IS_NODE_VALID(cp, cp->ai.c.ctrlNode))
 				{
-					if (lbody * 3 - *distToNode > 2)
+					CIV_STATE_SET_CONFUSED(cp);
+					return 0;
+				}
+
+				properVel = cp->hd.wheel_speed;
+				brakeDist = (properVel * FIXEDH(properVel)) / (newAccel * 2);
+
+				if (ABS(brakeDist) > *distToNode)
+				{
+					properVel -= 120000;
+					brakeDist = *distToNode - lbody * 3;
+
+					if (brakeDist < 0)
+					{
+						if (lbody * 3 - *distToNode > 2)
+						{
+							properVel /= *distToNode - lbody * 3;
+						}
+					}
+					else if (brakeDist > 2)
 					{
 						properVel /= *distToNode - lbody * 3;
 					}
-				}
-				else if (brakeDist > 2)
-				{
-					properVel /= *distToNode - lbody * 3;
-				}
 
-				cp->ai.c.velRatio = properVel;
-				cp->ai.c.thrustState = 1;
+					cp->ai.c.velRatio = properVel;
+					cp->ai.c.thrustState = 1;
+				}
 			}
+
+
+			if (FIXEDH(cp->hd.wheel_speed) > cp->ai.c.maxSpeed)
+				return newAccel >> 2;
+
+			return newAccel;
 		}
-
-		if (FIXEDH(cp->hd.wheel_speed) > cp->ai.c.maxSpeed)
-			return newAccel >> 2;
-
-		return newAccel;
-	}
-	case 1:
-	{
-		int properVel;
-		int distToEnd;
-		int accelRatio;
-
-		if (cp->ai.c.ctrlState == 5 || cp->ai.c.ctrlState == 8)
-			distToEnd = 100;
-		else
-			distToEnd = lbody * 3;
-
-		cp->ai.c.brakeLight = 1;
-
-		if (cp->ai.c.ctrlNode != NULL && cp->ai.c.ctrlNode->pathType != 127)
+		case 1:
 		{
-			if (cp->ai.c.ctrlState == 1 && junctionLightsPhase[cp->ai.c.trafficLightPhaseId] == 3)
-			{
-				cp->ai.c.thrustState = 0;
-				cp->ai.c.ctrlNode = NULL;
+			int properVel;
+			int distToEnd;
+			int accelRatio;
 
-				return newAccel;
-			}
+			if (cp->ai.c.ctrlState == 5 || cp->ai.c.ctrlState == 8)
+				distToEnd = 100;
+			else
+				distToEnd = lbody * 3;
 
-			if (*distToNode < distToEnd)
+			cp->ai.c.brakeLight = 1;
+
+			if (cp->ai.c.ctrlNode != NULL && cp->ai.c.ctrlNode->pathType != 127)
 			{
-				if (cp->ai.c.ctrlState == 6)
+				if (cp->ai.c.ctrlState == 1 && junctionLightsPhase[cp->ai.c.trafficLightPhaseId] == 3)
 				{
 					cp->ai.c.thrustState = 0;
 					cp->ai.c.ctrlNode = NULL;
@@ -4371,138 +4254,150 @@ int CivAccelTrafficRules(_CAR_DATA * cp, int* distToNode)
 					return newAccel;
 				}
 
-				accelRatio = (-cp->hd.wheel_speed) / 4;
+				
 
-				cp->ai.c.thrustState = 3;
-			}
-			else
-			{
-				if (cp->ai.c.ctrlState == 6)
+				if (*distToNode < distToEnd)
 				{
-					properVel = (*distToNode - distToEnd) * cp->ai.c.velRatio + 70000;
-				}
-				else if (distToEnd < *distToNode)
-				{
-					properVel = cp->ai.c.velRatio * ((*distToNode - distToEnd) + 100);
+					if (cp->ai.c.ctrlState == 6)
+					{
+						cp->ai.c.thrustState = 0;
+						cp->ai.c.ctrlNode = NULL;
+
+						return newAccel;
+					}
+
+					accelRatio = (-cp->hd.wheel_speed) / 4;
+
+					cp->ai.c.thrustState = 3;
 				}
 				else
 				{
-					properVel = 0;
+					if (cp->ai.c.ctrlState == 6)
+					{
+						properVel = (*distToNode - distToEnd) * cp->ai.c.velRatio + 70000;
+					}
+					else if (distToEnd < *distToNode)
+					{
+						properVel = cp->ai.c.velRatio * ((*distToNode - distToEnd) + 100);
+					}
+					else
+					{
+						properVel = 0;
+					}
+
+					accelRatio = ((properVel - cp->hd.wheel_speed) * newAccel) / 15;
 				}
 
-				accelRatio = ((properVel - cp->hd.wheel_speed) * newAccel) / 15;
+				if (IS_NODE_VALID(cp, cp->ai.c.ctrlNode))	// [A] Weird.
+				{
+					if (accelRatio <= newAccel)
+					{
+						if (accelRatio < newAccel * -2)
+							return newAccel * -2;
+						else
+							return accelRatio;
+					}
+
+					return newAccel;
+				}
 			}
 
-			if (IS_NODE_VALID(cp, cp->ai.c.ctrlNode))	// [A] Weird.
+			CIV_STATE_SET_CONFUSED(cp);
+			return 0;
+		}
+		case 3:
+		{
+			break;
+		}
+		case 5:
+		case 6:
+		{
+			int distToObstacle;
+			int checkObstDist;
+			int carDir;
+			int dx, dz;
+
+			cp->ai.c.brakeLight = 1;
+
+			if (cp->ai.c.ctrlState == 4)
+				checkObstDist = 2048;
+			else
+				checkObstDist = 512;
+
+			carDir = cp->hd.direction & 0xfff;
+			distToObstacle = 0x7fffff;
+
+			lcp = &car_data[MAX_CARS-1];
+			while (lcp >= car_data)
 			{
-				if (accelRatio <= newAccel)
+				if (lcp->ai.c.thrustState != 3 && lcp != cp && lcp->controlType != CONTROL_TYPE_NONE)
 				{
-					if (accelRatio < newAccel * -2)
+					dx = lcp->hd.where.t[0] - cp->hd.where.t[0];
+					dz = lcp->hd.where.t[2] - cp->hd.where.t[2];
+
+					tangent = FIXEDH(dx * rcossin_tbl[carDir * 2] + dz * rcossin_tbl[carDir * 2 + 1]);
+					normal = FIXEDH(dx * rcossin_tbl[carDir * 2 + 1] - dz * rcossin_tbl[carDir * 2]);
+
+					if (tangent > 0)
+					{
+						if (ABS(normal) < wbody * sideMul * 6 && tangent < distToObstacle)
+						{
+							distToObstacle = tangent;
+						}
+					}
+				}
+				lcp--;
+			}
+
+			if (distToObstacle <= checkObstDist)
+			{
+				int speed;
+				speed = (-cp->hd.wheel_speed) / 4; // is that a brake dist?
+
+				if (speed <= newAccel)
+				{
+					if (speed < newAccel * -2)
 						return newAccel * -2;
 					else
-						return accelRatio;
+						return speed;
 				}
 
 				return newAccel;
 			}
-		}
 
-		CIV_STATE_SET_CONFUSED(cp);
-		return 0;
-	}
-	case 3:
-	{
-		break;
-	}
-	case 5:
-	case 6:
-	{
-		int distToObstacle;
-		int checkObstDist;
-		int carDir;
-		int dx, dz;
-
-		cp->ai.c.brakeLight = 1;
-
-		if (cp->ai.c.ctrlState == 4)
-			checkObstDist = 2048;
-		else
-			checkObstDist = 512;
-
-		carDir = cp->hd.direction & 0xfff;
-		distToObstacle = 0x7fffff;
-
-		lcp = &car_data[MAX_CARS-1];
-		while (lcp >= car_data)
-		{
-			if (lcp->ai.c.thrustState != 3 && lcp != cp && lcp->controlType != CONTROL_TYPE_NONE)
-			{
-				dx = lcp->hd.where.t[0] - cp->hd.where.t[0];
-				dz = lcp->hd.where.t[2] - cp->hd.where.t[2];
-
-				tangent = FIXEDH(dx * rcossin_tbl[carDir * 2] + dz * rcossin_tbl[carDir * 2 + 1]);
-				normal = FIXEDH(dx * rcossin_tbl[carDir * 2 + 1] - dz * rcossin_tbl[carDir * 2]);
-
-				if (tangent > 0)
-				{
-					if (ABS(normal) < wbody * sideMul * 6 && tangent < distToObstacle)
-					{
-						distToObstacle = tangent;
-					}
-				}
-			}
-			lcp--;
-		}
-
-		if (distToObstacle <= checkObstDist)
-		{
-			int speed;
-			speed = (-cp->hd.wheel_speed) / 4; // is that a brake dist?
-
-			if (speed <= newAccel)
-			{
-				if (speed < newAccel * -2)
-					return newAccel * -2;
-				else
-					return speed;
-			}
+			cp->ai.c.ctrlState = 0;
+			cp->ai.c.thrustState = 0;
+			cp->ai.c.ctrlNode = 0;
 
 			return newAccel;
 		}
-
-		cp->ai.c.ctrlState = 0;
-		cp->ai.c.thrustState = 0;
-		cp->ai.c.ctrlNode = 0;
-
-		return newAccel;
-	}
-	default:
-	{
-		CIV_STATE_SET_CONFUSED(cp);
-		return 0;
-	}
+		default:
+		{
+			CIV_STATE_SET_CONFUSED(cp);
+			return 0;
+		}
 	}
 
 	// switch lights
 	switch (cp->ai.c.ctrlState)
 	{
-	case 1:
-		if (junctionLightsPhase[cp->ai.c.trafficLightPhaseId] == 3)
-			cp->ai.c.thrustState = 0;
-	case 2:
-		cp->ai.c.brakeLight = 1;
-		return 0;
-	case 3:
-		cp->ai.c.thrustState = 5;
-		cp->ai.c.brakeLight = 1;
-		break;
-	case 4:
-		cp->ai.c.thrustState = 6;
-		cp->ai.c.brakeLight = 1;
-		break;
-	default:
-		cp->ai.c.brakeLight = 0;
-		break;
+		case 1:
+			if (junctionLightsPhase[cp->ai.c.trafficLightPhaseId] == 3)
+				cp->ai.c.thrustState = 0;
+		case 2:
+			cp->ai.c.brakeLight = 1;
+			return 0;
+		case 3:
+			cp->ai.c.thrustState = 5;
+			cp->ai.c.brakeLight = 1;
+			break;
+		case 4:
+			cp->ai.c.thrustState = 6;
+			cp->ai.c.brakeLight = 1;
+			break;
+		default:
+			cp->ai.c.brakeLight = 0;
+			break;
 	}
 
 	return 0;
@@ -4518,10 +4413,10 @@ int CivAccelTrafficRules(_CAR_DATA * cp, int* distToNode)
 		// Start line: 2952
 		// Start offset: 0x0002ABA8
 		// Variables:
-	// 		struct SVECTOR boxDisp; // stack offset -72
+	// 		SVECTOR boxDisp; // stack offset -72
 	// 		int carLength[2]; // stack offset -64
-	// 		struct _CAR_DATA *cp0; // $s5
-	// 		struct _CAR_DATA *cp1; // $s2
+	// 		CAR_DATA *cp0; // $s5
+	// 		CAR_DATA *cp1; // $s2
 	// 		unsigned int dNewLBODY[2]; // stack offset -56
 	// 		int dx; // $s0
 	// 		int dz; // stack offset -48
@@ -4569,7 +4464,7 @@ int CivAccelTrafficRules(_CAR_DATA * cp, int* distToNode)
 				// 		int i; // $a1
 				// 		int h; // $a3
 				// 		int rnd; // $a2
-				// 		struct _CAR_DATA *cp; // $s0
+				// 		CAR_DATA *cp; // $s0
 
 					/* begin block 1.2.2.2.1 */
 						// Start line: 3040
@@ -4635,17 +4530,17 @@ int CivAccelTrafficRules(_CAR_DATA * cp, int* distToNode)
 int brakeLength[MAX_CARS];
 
 int CAR_PAUSE_START = 100;
-static _CAR_DATA(*horncarflag[2]) = { 0 };
+static CAR_DATA(*horncarflag[2]) = { 0 };
 static unsigned char hornchanflag[2] = { 0 };
 
 // [D] [T]
 void SetUpCivCollFlags(void)
 {
-	_CAR_DATA** pp_Var9;
+	CAR_DATA** pp_Var9;
 	CAR_COSMETICS* car_cos;
-	_CAR_DATA* cp1;
+	CAR_DATA* cp1;
 	SVECTOR boxDisp;
-	_CAR_DATA* cp0;
+	CAR_DATA* cp0;
 	int carLength[2];
 	int i;
 	int brake;
@@ -4837,7 +4732,7 @@ void SetUpCivCollFlags(void)
 								else
 									sample = cp0->ap.model - 1;
 
-								Start3DSoundVolPitch(hornchanflag[i], 3, sample * 3 + 2, cp0->hd.where.t[0], cp0->hd.where.t[1], cp0->hd.where.t[2], -2000, 0x1000);
+								Start3DSoundVolPitch(hornchanflag[i], SOUND_BANK_CARS, sample * 3 + 2, cp0->hd.where.t[0], cp0->hd.where.t[1], cp0->hd.where.t[2], -2000, 0x1000);
 								horncarflag[i] = cp0;
 
 								channels[hornchanflag[i]].time += rnd - (rnd / 30) * 30;
@@ -4875,7 +4770,7 @@ void SetUpCivCollFlags(void)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CivAccel(struct _CAR_DATA *cp /*$s0*/)
+// int /*$ra*/ CivAccel(CAR_DATA *cp /*$s0*/)
 	// line 3074, offset 0x0002b26c
 	/* begin block 1 */
 		// Start line: 3075
@@ -4941,7 +4836,7 @@ void SetUpCivCollFlags(void)
 	// End Line: 7085
 
 // [D] [T]
-int CivAccel(_CAR_DATA * cp)
+int CivAccel(CAR_DATA * cp)
 {
 	CIV_ROUTE_ENTRY* node;
 	int distToNode;
@@ -5045,7 +4940,7 @@ int CivAccel(_CAR_DATA * cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CivSteerAngle(struct _CAR_DATA *cp /*$s0*/)
+// int /*$ra*/ CivSteerAngle(CAR_DATA *cp /*$s0*/)
 	// line 3166, offset 0x0002b53c
 	/* begin block 1 */
 		// Start line: 3167
@@ -5054,8 +4949,8 @@ int CivAccel(_CAR_DATA * cp)
 	// 		int station; // $a3
 	// 		int step; // $s2
 	// 		int ret; // $a0
-	// 		struct VECTOR locPath; // stack offset -56
-	// 		struct VECTOR pathPoint; // stack offset -40
+	// 		VECTOR locPath; // stack offset -56
+	// 		VECTOR pathPoint; // stack offset -40
 	// 		int lbody; // $s3
 
 		/* begin block 1.1 */
@@ -5066,13 +4961,13 @@ int CivAccel(_CAR_DATA * cp)
 				// Start line: 3167
 				// Start offset: 0x0002B53C
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 
 				/* begin block 1.1.1.1 */
 					// Start line: 3167
 					// Start offset: 0x0002B53C
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.1.1.1 */
 				// End offset: 0x0002B590
 				// End Line: 3175
@@ -5084,13 +4979,13 @@ int CivAccel(_CAR_DATA * cp)
 				// Start line: 3167
 				// Start offset: 0x0002B5A0
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 
 				/* begin block 1.1.2.1 */
 					// Start line: 3167
 					// Start offset: 0x0002B5A0
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.1.2.1 */
 				// End offset: 0x0002B5B0
 				// End Line: 3167
@@ -5102,13 +4997,13 @@ int CivAccel(_CAR_DATA * cp)
 				// Start line: 3167
 				// Start offset: 0x0002B5C0
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 
 				/* begin block 1.1.3.1 */
 					// Start line: 3167
 					// Start offset: 0x0002B5C0
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.1.3.1 */
 				// End offset: 0x0002B5D0
 				// End Line: 3167
@@ -5120,13 +5015,13 @@ int CivAccel(_CAR_DATA * cp)
 				// Start line: 3167
 				// Start offset: 0x0002B5E0
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 
 				/* begin block 1.1.4.1 */
 					// Start line: 3167
 					// Start offset: 0x0002B5E0
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.1.4.1 */
 				// End offset: 0x0002B5F0
 				// End Line: 3167
@@ -5141,13 +5036,13 @@ int CivAccel(_CAR_DATA * cp)
 			// Start line: 3167
 			// Start offset: 0x0002B67C
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 
 			/* begin block 1.2.1 */
 				// Start line: 3167
 				// Start offset: 0x0002B67C
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $a0
+			// 		CIV_ROUTE_ENTRY *retNode; // $a0
 			/* end block 1.2.1 */
 			// End offset: 0x0002B690
 			// End Line: 3167
@@ -5159,8 +5054,8 @@ int CivAccel(_CAR_DATA * cp)
 			// Start line: 3201
 			// Start offset: 0x0002B6A0
 			// Variables:
-		// 		struct CIV_ROUTE_ENTRY *crLoc; // $a1
-		// 		struct CIV_ROUTE_ENTRY *cr; // $a0
+		// 		CIV_ROUTE_ENTRY *crLoc; // $a1
+		// 		CIV_ROUTE_ENTRY *cr; // $a0
 		/* end block 1.3 */
 		// End offset: 0x0002B700
 		// End Line: 3212
@@ -5169,13 +5064,13 @@ int CivAccel(_CAR_DATA * cp)
 			// Start line: 3167
 			// Start offset: 0x0002B748
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 
 			/* begin block 1.4.1 */
 				// Start line: 3167
 				// Start offset: 0x0002B748
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+			// 		CIV_ROUTE_ENTRY *retNode; // $v1
 			/* end block 1.4.1 */
 			// End offset: 0x0002B758
 			// End Line: 3167
@@ -5187,19 +5082,19 @@ int CivAccel(_CAR_DATA * cp)
 			// Start line: 3236
 			// Start offset: 0x0002B870
 			// Variables:
-		// 		struct CIV_ROUTE_ENTRY *cr; // $a0
+		// 		CIV_ROUTE_ENTRY *cr; // $a0
 
 			/* begin block 1.5.1 */
 				// Start line: 3167
 				// Start offset: 0x0002B8A0
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 
 				/* begin block 1.5.1.1 */
 					// Start line: 3167
 					// Start offset: 0x0002B8A0
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.5.1.1 */
 				// End offset: 0x0002B8B0
 				// End Line: 3167
@@ -5229,7 +5124,7 @@ const int checkFrames = 20;
 const int maxSteer = 512;
 
 // [D] [T] [A] - removed copying of car. Still works okay
-int CivSteerAngle(_CAR_DATA * cp)
+int CivSteerAngle(CAR_DATA * cp)
 {
 	CIV_ROUTE_ENTRY* startNode;
 	short lbody;
@@ -5322,13 +5217,13 @@ int CivSteerAngle(_CAR_DATA * cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CivFindStation(struct _CAR_DATA *cp /*$s6*/)
+// int /*$ra*/ CivFindStation(CAR_DATA *cp /*$s6*/)
 	// line 3265, offset 0x0002b8e4
 	/* begin block 1 */
 		// Start line: 3266
 		// Start offset: 0x0002B8E4
 		// Variables:
-	// 		struct CIV_ROUTE_ENTRY *rep; // $s3
+	// 		CIV_ROUTE_ENTRY *rep; // $s3
 	// 		int cx; // stack offset -48
 	// 		int cz; // $fp
 
@@ -5342,13 +5237,13 @@ int CivSteerAngle(_CAR_DATA * cp)
 				// Start line: 3266
 				// Start offset: 0x0002B93C
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s6
+			// 		CAR_DATA *cp; // $s6
 
 				/* begin block 1.1.1.1 */
 					// Start line: 3266
 					// Start offset: 0x0002B93C
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.1.1.1 */
 				// End offset: 0x0002B950
 				// End Line: 3266
@@ -5363,14 +5258,14 @@ int CivSteerAngle(_CAR_DATA * cp)
 			// Start line: 3280
 			// Start offset: 0x0002B964
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s6
-		// 		struct CIV_ROUTE_ENTRY *currentNode; // $s3
+		// 		CAR_DATA *cp; // $s6
+		// 		CIV_ROUTE_ENTRY *currentNode; // $s3
 
 			/* begin block 1.2.1 */
 				// Start line: 3280
 				// Start offset: 0x0002B964
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $s0
+			// 		CIV_ROUTE_ENTRY *retNode; // $s0
 			/* end block 1.2.1 */
 			// End offset: 0x0002B964
 			// End Line: 3280
@@ -5393,14 +5288,14 @@ int CivSteerAngle(_CAR_DATA * cp)
 				// Start line: 3309
 				// Start offset: 0x0002BA28
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s6
-			// 		struct CIV_ROUTE_ENTRY *currentNode; // $s3
+			// 		CAR_DATA *cp; // $s6
+			// 		CIV_ROUTE_ENTRY *currentNode; // $s3
 
 				/* begin block 1.3.1.1 */
 					// Start line: 3309
 					// Start offset: 0x0002BA28
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.3.1.1 */
 				// End offset: 0x0002BA38
 				// End Line: 3309
@@ -5412,14 +5307,14 @@ int CivSteerAngle(_CAR_DATA * cp)
 				// Start line: 3266
 				// Start offset: 0x0002BA48
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s6
-			// 		struct CIV_ROUTE_ENTRY *currentNode; // $s3
+			// 		CAR_DATA *cp; // $s6
+			// 		CIV_ROUTE_ENTRY *currentNode; // $s3
 
 				/* begin block 1.3.2.1 */
 					// Start line: 3266
 					// Start offset: 0x0002BA48
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.3.2.1 */
 				// End offset: 0x0002BA58
 				// End Line: 3266
@@ -5431,14 +5326,14 @@ int CivSteerAngle(_CAR_DATA * cp)
 				// Start line: 3266
 				// Start offset: 0x0002BA68
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s6
-			// 		struct CIV_ROUTE_ENTRY *currentNode; // $s3
+			// 		CAR_DATA *cp; // $s6
+			// 		CIV_ROUTE_ENTRY *currentNode; // $s3
 
 				/* begin block 1.3.3.1 */
 					// Start line: 3266
 					// Start offset: 0x0002BA68
 					// Variables:
-				// 		struct CIV_ROUTE_ENTRY *retNode; // $v1
+				// 		CIV_ROUTE_ENTRY *retNode; // $v1
 				/* end block 1.3.3.1 */
 				// End offset: 0x0002BA78
 				// End Line: 3266
@@ -5463,7 +5358,7 @@ int CivSteerAngle(_CAR_DATA * cp)
 	// End Line: 7499
 
 // [D] [T]
-int CivFindStation(_CAR_DATA * cp)
+int CivFindStation(CAR_DATA * cp)
 {
 
 	int loop;
@@ -5546,27 +5441,27 @@ int CivFindStation(_CAR_DATA * cp)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CivFindPointOnPath(struct _CAR_DATA *cp /*$s7*/, int station /*$s2*/, struct VECTOR *ppoint /*$fp*/)
+// int /*$ra*/ CivFindPointOnPath(CAR_DATA *cp /*$s7*/, int station /*$s2*/, VECTOR *ppoint /*$fp*/)
 	// line 3337, offset 0x0002baec
 	/* begin block 1 */
 		// Start line: 3338
 		// Start offset: 0x0002BAEC
 		// Variables:
-	// 		struct CIV_ROUTE_ENTRY *cprep; // $a0
-	// 		struct CIV_ROUTE_ENTRY *start; // stack offset -48
+	// 		CIV_ROUTE_ENTRY *cprep; // $a0
+	// 		CIV_ROUTE_ENTRY *start; // stack offset -48
 
 		/* begin block 1.1 */
 			// Start line: 3346
 			// Start offset: 0x0002BB50
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s7
-		// 		struct CIV_ROUTE_ENTRY *currentNode; // $a0
+		// 		CAR_DATA *cp; // $s7
+		// 		CIV_ROUTE_ENTRY *currentNode; // $a0
 
 			/* begin block 1.1.1 */
 				// Start line: 3346
 				// Start offset: 0x0002BB50
 				// Variables:
-			// 		struct CIV_ROUTE_ENTRY *retNode; // $s0
+			// 		CIV_ROUTE_ENTRY *retNode; // $s0
 			/* end block 1.1.1 */
 			// End offset: 0x0002BB50
 			// End Line: 3346
@@ -5601,7 +5496,7 @@ int CivFindStation(_CAR_DATA * cp)
 	// End Line: 7705
 
 // [D] [T]
-int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
+int CivFindPointOnPath(CAR_DATA * cp, int station, VECTOR * ppoint)
 {
 	int stepSize;
 	CIV_ROUTE_ENTRY* start;
@@ -5682,11 +5577,11 @@ int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
 		// Start line: 3400
 		// Start offset: 0x0002BCF4
 		// Variables:
-	// 		struct _CAR_DATA *cp; // $v1
-	// 		struct _CAR_DATA *lcp; // $s0
-	// 		struct _CAR_DATA *newCar; // $s0
-	// 		struct DRIVER2_STRAIGHT *str; // stack offset -72
-	// 		struct DRIVER2_CURVE *crv; // $s7
+	// 		CAR_DATA *cp; // $v1
+	// 		CAR_DATA *lcp; // $s0
+	// 		CAR_DATA *newCar; // $s0
+	// 		DRIVER2_STRAIGHT *str; // stack offset -72
+	// 		DRIVER2_CURVE *crv; // $s7
 	// 		int distAlongSegment; // $s2
 	// 		int lbody; // $s4
 	// 		int dir; // $s6
@@ -5739,7 +5634,7 @@ int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
 				// Start line: 3399
 				// Start offset: 0x0002C590
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 			/* end block 1.4.2 */
 			// End offset: 0x0002C674
 			// End Line: 3399
@@ -5748,7 +5643,7 @@ int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
 				// Start line: 3399
 				// Start offset: 0x0002C708
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s0
+			// 		CAR_DATA *cp; // $s0
 			/* end block 1.4.3 */
 			// End offset: 0x0002C7E4
 			// End Line: 3399
@@ -5760,7 +5655,7 @@ int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
 			// Start line: 3515
 			// Start offset: 0x0002C830
 			// Variables:
-		// 		struct VECTOR startPos2; // stack offset -88
+		// 		VECTOR startPos2; // stack offset -88
 		// 		int deltaAngle; // $a0
 		// 		int dir2NextRow; // $a1
 		// 		int faceDir; // $s1
@@ -5782,7 +5677,7 @@ int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
 						// Start line: 3399
 						// Start offset: 0x0002CAC4
 						// Variables:
-					// 		struct _CAR_DATA *cp; // $s0
+					// 		CAR_DATA *cp; // $s0
 					/* end block 1.5.1.1.1 */
 					// End offset: 0x0002CBA8
 					// End Line: 3399
@@ -5791,7 +5686,7 @@ int CivFindPointOnPath(_CAR_DATA * cp, int station, VECTOR * ppoint)
 						// Start line: 3399
 						// Start offset: 0x0002CC3C
 						// Variables:
-					// 		struct _CAR_DATA *cp; // $s0
+					// 		CAR_DATA *cp; // $s0
 					/* end block 1.5.1.1.2 */
 					// End offset: 0x0002CD18
 					// End Line: 3399
@@ -5835,7 +5730,7 @@ void CreateRoadblock(void)
 {
 	int laneNo;
 	CAR_COSMETICS* car_cos;
-	_CAR_DATA* cp;
+	CAR_DATA* cp;
 	int distAlongSegment;
 	
 	DRIVER2_CURVE* crv;
@@ -5855,7 +5750,7 @@ void CreateRoadblock(void)
 	int dir2NextRow;
 
 	int newSlot;
-	_CAR_DATA* newCar;
+	CAR_DATA* newCar;
 
 	crv = NULL;
 	str = NULL;
@@ -6003,7 +5898,7 @@ void CreateRoadblock(void)
 		if((str && ROAD_IS_AI_LANE(str, laneNo) || crv && ROAD_IS_AI_LANE(crv, laneNo)) && 
 			CellEmpty(&currentPos, lbody))
 		{
-			newSlot = CreateStationaryCivCar(dir2NextRow + (Random2(0) * 0x10001 >> (laneNo) & 0x3ffU) - 512, 0, 0, (long(*)[4]) & currentPos, externalCopModel, 0, 2);
+			newSlot = CreateStationaryCivCar(dir2NextRow + (Random2(0) * 0x10001 >> (laneNo) & 0x3ffU) - 512, 0, 0, (LONGVECTOR *)&currentPos, externalCopModel, 0, 2);
 
 			if (newSlot == -1)
 				break;
@@ -6080,7 +5975,7 @@ void CreateRoadblock(void)
 
 			test42 = delta;
 
-			newSlot = CreateStationaryCivCar(faceDir + (Random2(0) * 0x10001 >> (delta >> 9 & 0x1fU) & 0x3ffU) - 512, 0, 0, (long(*)[4]) & currentPos, externalCopModel, 0, 2);
+			newSlot = CreateStationaryCivCar(faceDir + (Random2(0) * 0x10001 >> (delta >> 9 & 0x1fU) & 0x3ffU) - 512, 0, 0, (LONGVECTOR *)&currentPos, externalCopModel, 0, 2);
 
 			if (newSlot == -1)
 				break;

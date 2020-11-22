@@ -8,18 +8,16 @@
 #include "SOUND.H"
 #include "PAD.H"
 #include "MISSION.H"
-#include "COP_AI.H"
 #include "SCORES.H"
 #include "LIBGPU.H"
 #include "LIBETC.H"
 #include "E3STUFF.H"
 #include "PRES.H"
 #include "PAUSE.H"
+#include "PLATFORM.H"
 
 #ifndef PSX
-#include <stdlib.h>
-
-#include <PLATFORM.H>
+#include <stdlib.h>		// getenv
 
 // [A]
 void ShowSavingWaitMessage(char *message, int height)
@@ -323,7 +321,7 @@ int LoadReplayFromFile(char* fileName)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 int CalcReplayDataSize(void)
 {
 	return SaveReplayToBuffer(NULL);
@@ -362,7 +360,7 @@ int CalcReplayDataSize(void)
 	/* end block 5 */
 	// End Line: 305
 
-// [D]
+// [D] [T]
 int SaveReplayData(char* buffer)
 {
 	return SaveReplayToBuffer(buffer);
@@ -389,7 +387,7 @@ int SaveReplayData(char* buffer)
 	/* end block 3 */
 	// End Line: 319
 
-// [D]
+// [D] [T]
 int LoadReplayData(char* buffer)
 {
 	return LoadReplayFromBuffer(buffer);
@@ -413,7 +411,7 @@ int LoadReplayData(char* buffer)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 int CalcGameDataSize(void)
 {
 	return sizeof(GAME_SAVE_HEADER);
@@ -437,7 +435,7 @@ int CalcGameDataSize(void)
 	/* end block 2 */
 	// End Line: 344
 
-// [D]
+// [D] [T]
 int SaveGameData(char* buffer)
 {
 	GAME_SAVE_HEADER* saveHeader;
@@ -464,7 +462,7 @@ int SaveGameData(char* buffer)
 		// Start line: 86
 		// Start offset: 0x000580CC
 		// Variables:
-	// 		struct GAME_SAVE_HEADER *header; // $a0
+	// 		GAME_SAVE_HEADER *header; // $a0
 	/* end block 1 */
 	// End offset: 0x00058164
 	// End Line: 99
@@ -484,7 +482,7 @@ int SaveGameData(char* buffer)
 	/* end block 4 */
 	// End Line: 387
 
-// [D]
+// [D] [T]
 int LoadGameData(char* buffer)
 {
 	GAME_SAVE_HEADER* header;
@@ -527,7 +525,7 @@ int LoadGameData(char* buffer)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 int CalcConfigDataSize(void)
 {
 	return sizeof(CONFIG_SAVE_HEADER);
@@ -543,7 +541,7 @@ int CalcConfigDataSize(void)
 		// Start line: 110
 		// Start offset: 0x00057BF0
 		// Variables:
-	// 		struct CONFIG_SAVE_HEADER *header; // $s0
+	// 		CONFIG_SAVE_HEADER *header; // $s0
 	// 		int i; // $t0
 	/* end block 1 */
 	// End offset: 0x00057DF0
@@ -554,7 +552,7 @@ int CalcConfigDataSize(void)
 	/* end block 2 */
 	// End Line: 219
 
-// [D]
+// [D] [T]
 int SaveConfigData(char* buffer)
 {
 	CONFIG_SAVE_HEADER* header;
@@ -597,7 +595,7 @@ int SaveConfigData(char* buffer)
 		// Start line: 141
 		// Start offset: 0x00057DF0
 		// Variables:
-	// 		struct CONFIG_SAVE_HEADER *header; // $t3
+	// 		CONFIG_SAVE_HEADER *header; // $t3
 	// 		int i; // $t4
 	/* end block 1 */
 	// End offset: 0x00057FD4
@@ -618,6 +616,7 @@ int SaveConfigData(char* buffer)
 	/* end block 4 */
 	// End Line: 316
 
+// [D] [T]
 int LoadConfigData(char* buffer)
 {
 	CONFIG_SAVE_HEADER* header;

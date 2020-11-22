@@ -35,6 +35,57 @@ int NumDriver2Curves = 0;
 int NumDriver2Straights = 0;
 DRIVER2_STRAIGHT *Driver2StraightsPtr = NULL;
 
+#if 0
+const short ChicagoBridgeRoads1[] = {
+	434,
+	433,
+	65,
+	64,
+	63,
+	62,
+	61,
+	457,
+	458,
+	488,
+	-1,
+};
+
+const short ChicagoBridgeRoads2[] = {
+	336,
+	319,
+	297,
+	284,
+	260,
+	254,
+	222,
+	-1,
+};
+
+const short ChicagoBridgeRoads3[] = {
+	562,
+	570,
+	582,
+	586,
+	597,
+	600,
+	622,
+	623,
+	-1,
+};
+
+// [A] Chicago roads
+const short* ChicagoBridgeRoads[] = {
+	// Goose island
+	ChicagoBridgeRoads1,
+
+	// Downtown
+	ChicagoBridgeRoads2,
+
+	// Downtown 2
+	ChicagoBridgeRoads3,
+};
+#endif
+
 // [A] custom function for working with roads in very optimized way
 int GetSurfaceRoadInfo(DRIVER2_ROAD_INFO* outRoadInfo, int surfId)
 {
@@ -47,7 +98,7 @@ int GetSurfaceRoadInfo(DRIVER2_ROAD_INFO* outRoadInfo, int surfId)
 	if(IS_CURVED_SURFACE(surfId))
 	{
 		outRoadInfo->curve = curve = GET_CURVE(surfId);
-		outRoadInfo->ConnectIdx = (short(*)[4])curve->ConnectIdx;
+		outRoadInfo->ConnectIdx = &curve->ConnectIdx;
 		outRoadInfo->NumLanes = curve->NumLanes;
 		outRoadInfo->LaneDirs = curve->LaneDirs;
 		outRoadInfo->AILanes = curve->AILanes;
@@ -56,7 +107,7 @@ int GetSurfaceRoadInfo(DRIVER2_ROAD_INFO* outRoadInfo, int surfId)
 	else if (IS_STRAIGHT_SURFACE(surfId))
 	{
 		outRoadInfo->straight = straight = GET_STRAIGHT(surfId);
-		outRoadInfo->ConnectIdx = (short(*)[4])straight->ConnectIdx;
+		outRoadInfo->ConnectIdx = &straight->ConnectIdx;
 		outRoadInfo->NumLanes = straight->NumLanes;
 		outRoadInfo->LaneDirs = straight->LaneDirs;
 		outRoadInfo->AILanes = straight->AILanes;
@@ -92,6 +143,39 @@ void ProcessStraightsDriver2Lump(char *lump_file, int lump_size)
 {
 	Getlong((char *)&NumDriver2Straights, lump_file);
 	Driver2StraightsPtr = (DRIVER2_STRAIGHT *)(lump_file + 4);
+
+#if 0
+	// [A] patch chicago roads
+	if (GameLevel == 0)
+	{
+		DRIVER2_STRAIGHT* str;
+		int grp, i, j;
+		int numLanes;
+
+		for (grp = 0; grp < 3; grp++)
+		{
+			// don't activate those roads in Caine's Compound
+			if(grp == 0 && gCurrentMissionNumber == 7)
+				continue;
+
+			i = 0;
+			while (ChicagoBridgeRoads[grp][i] >= 0)
+			{
+				str = GET_STRAIGHT(ChicagoBridgeRoads[grp][i]);
+				numLanes = ROAD_LANES_COUNT(str);
+
+				for (j = 0; j < numLanes; j++)
+				{
+					if ((numLanes & 1) && j == numLanes / 2)
+						continue;
+
+					str->AILanes |= 1 << j;
+				}
+				i++;
+			}
+		}
+	}
+#endif
 }
 
 
@@ -139,8 +223,8 @@ void ProcessCurvesDriver2Lump(char *lump_file, int lump_size)
 			// Start offset: 0x0001375C
 			// Variables:
 		// 		int loop; // $v1
-		// 		struct OLD_DRIVER2_JUNCTION *old; // $a1
-		// 		struct DRIVER2_JUNCTION *p; // $a0
+		// 		OLD_DRIVER2_JUNCTION *old; // $a1
+		// 		DRIVER2_JUNCTION *p; // $a0
 
 			/* begin block 1.1.1 */
 				// Start line: 107
@@ -203,14 +287,14 @@ void ProcessJunctionsDriver2Lump(char *lump_file, int lump_size, int fix)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ MapHeight(struct VECTOR *pos /*$s0*/)
+// int /*$ra*/ MapHeight(VECTOR *pos /*$s0*/)
  // line 146, offset 0x000137cc
 	/* begin block 1 */
 		// Start line: 147
 		// Start offset: 0x000137CC
 		// Variables:
 	// 		int height; // $v0
-	// 		struct _sdPlane *plane; // $v0
+	// 		sdPlane *plane; // $v0
 	/* end block 1 */
 	// End offset: 0x0001380C
 	// End Line: 162
@@ -228,7 +312,7 @@ void ProcessJunctionsDriver2Lump(char *lump_file, int lump_size, int fix)
 // [D] [T]
 int MapHeight(VECTOR *pos)
 {
-	_sdPlane *plane;
+	sdPlane *plane;
 
 	plane = sdGetCell(pos);
 
@@ -242,7 +326,7 @@ int MapHeight(VECTOR *pos)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ FindSurfaceD2(struct VECTOR *pos /*$s0*/, struct VECTOR *normal /*$s1*/, struct VECTOR *out /*$s3*/, struct _sdPlane **plane /*$s2*/)
+// int /*$ra*/ FindSurfaceD2(VECTOR *pos /*$s0*/, VECTOR *normal /*$s1*/, VECTOR *out /*$s3*/, sdPlane **plane /*$s2*/)
  // line 164, offset 0x00012ef4
 	/* begin block 1 */
 		// Start line: 328
@@ -250,7 +334,7 @@ int MapHeight(VECTOR *pos)
 	// End Line: 329
 
 // [D] [T]
-int FindSurfaceD2(VECTOR *pos, VECTOR *normal, VECTOR *out, _sdPlane **plane)
+int FindSurfaceD2(VECTOR *pos, VECTOR *normal, VECTOR *out, sdPlane **plane)
 {
 	*plane = sdGetCell(pos);
 	out->vx = pos->vx;
@@ -292,7 +376,7 @@ int FindSurfaceD2(VECTOR *pos, VECTOR *normal, VECTOR *out, _sdPlane **plane)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ sdHeightOnPlane(struct VECTOR *pos /*$t0*/, struct _sdPlane *plane /*$a1*/)
+// int /*$ra*/ sdHeightOnPlane(VECTOR *pos /*$t0*/, sdPlane *plane /*$a1*/)
  // line 205, offset 0x000130d4
 	/* begin block 1 */
 		// Start line: 206
@@ -304,7 +388,7 @@ int FindSurfaceD2(VECTOR *pos, VECTOR *normal, VECTOR *out, _sdPlane **plane)
 			// Variables:
 		// 		int angle; // $v0
 		// 		int i; // $v0
-		// 		struct DRIVER2_CURVE *curve; // $s0
+		// 		DRIVER2_CURVE *curve; // $s0
 		/* end block 1.1 */
 		// End offset: 0x0001319C
 		// End Line: 228
@@ -337,7 +421,7 @@ int FindSurfaceD2(VECTOR *pos, VECTOR *normal, VECTOR *out, _sdPlane **plane)
 	// End Line: 411
 
 // [D] [T]
-int sdHeightOnPlane(VECTOR *pos, _sdPlane *plane)
+int sdHeightOnPlane(VECTOR *pos, sdPlane *plane)
 {
 	long angle;
 	int i, d;
@@ -382,13 +466,13 @@ int sdHeightOnPlane(VECTOR *pos, _sdPlane *plane)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ GetSurfaceIndex(struct VECTOR *pos /*$a0*/)
+// int /*$ra*/ GetSurfaceIndex(VECTOR *pos /*$a0*/)
  // line 250, offset 0x0001380c
 	/* begin block 1 */
 		// Start line: 252
 		// Start offset: 0x0001380C
 		// Variables:
-	// 		struct _sdPlane *plane; // $v0
+	// 		sdPlane *plane; // $v0
 	/* end block 1 */
 	// End offset: 0x00013848
 	// End Line: 260
@@ -416,7 +500,7 @@ int sdHeightOnPlane(VECTOR *pos, _sdPlane *plane)
 // [D] [T]
 int GetSurfaceIndex(VECTOR *pos)
 {
-	_sdPlane *plane = sdGetCell(pos);
+	sdPlane *plane = sdGetCell(pos);
 
 	if (plane == NULL)
 		return -32;
@@ -428,13 +512,13 @@ int GetSurfaceIndex(VECTOR *pos)
 
 // decompiled code
 // original method signature: 
-// struct _sdPlane * /*$ra*/ FindRoadInBSP(struct _sdNode *node /*$s0*/, struct _sdPlane *base /*$s1*/)
+// sdPlane * /*$ra*/ FindRoadInBSP(_sdNode *node /*$s0*/, sdPlane *base /*$s1*/)
  // line 266, offset 0x000138f0
 	/* begin block 1 */
 		// Start line: 268
 		// Start offset: 0x00013908
 		// Variables:
-	// 		struct _sdPlane *plane; // $v0
+	// 		sdPlane *plane; // $v0
 	/* end block 1 */
 	// End offset: 0x00013980
 	// End Line: 293
@@ -450,9 +534,9 @@ int GetSurfaceIndex(VECTOR *pos)
 	// End Line: 1464
 
 // [D] [T]
-_sdPlane * FindRoadInBSP(_sdNode *node, _sdPlane *base)
+sdPlane * FindRoadInBSP(_sdNode *node, sdPlane *base)
 {
-	_sdPlane *plane;
+	sdPlane *plane;
 
 	while (true)
 	{
@@ -477,17 +561,17 @@ _sdPlane * FindRoadInBSP(_sdNode *node, _sdPlane *base)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ RoadInCell(struct VECTOR *pos /*$s5*/)
+// int /*$ra*/ RoadInCell(VECTOR *pos /*$s5*/)
  // line 295, offset 0x0001322c
 	/* begin block 1 */
 		// Start line: 296
 		// Start offset: 0x0001322C
 		// Variables:
 	// 		char *buffer; // $s2
-	// 		struct XYPAIR cellPos; // stack offset -48
-	// 		struct XYPAIR cell; // stack offset -40
+	// 		XYPAIR cellPos; // stack offset -48
+	// 		XYPAIR cell; // stack offset -40
 	// 		short *surface; // $a0
-	// 		struct _sdPlane *plane; // $s0
+	// 		sdPlane *plane; // $s0
 
 		/* begin block 1.1 */
 			// Start line: 331
@@ -495,7 +579,7 @@ _sdPlane * FindRoadInBSP(_sdNode *node, _sdPlane *base)
 			// Variables:
 		// 		int moreLevels; // $s3
 		// 		short *check; // $s1
-		// 		struct _sdPlane *base; // $s4
+		// 		sdPlane *base; // $s4
 		/* end block 1.1 */
 		// End offset: 0x000133E4
 		// End Line: 372
@@ -523,10 +607,10 @@ int RoadInCell(VECTOR *pos)
 {
 	int moreLevels;
 	short sVar2;
-	_sdPlane *plane;
+	sdPlane *plane;
 	short *check;
 	short *buffer;
-	struct XYPAIR cellPos;
+	XYPAIR cellPos;
 
 	cellPos.x = pos->vx - 512;
 	cellPos.y = pos->vz - 512;
@@ -553,14 +637,14 @@ int RoadInCell(VECTOR *pos)
 
 				if (*check & 0x4000)
 				{
-					plane = FindRoadInBSP((_sdNode *)((int)buffer + (*check & 0x3fff) * sizeof(_sdNode) + buffer[3]), (_sdPlane *)((int)buffer + buffer[1]));
+					plane = FindRoadInBSP((_sdNode *)((int)buffer + (*check & 0x3fff) * sizeof(_sdNode) + buffer[3]), (sdPlane *)((int)buffer + buffer[1]));
 
 					if (plane != NULL)
 						break;
 				}
 				else
 				{
-					plane = (_sdPlane *)((int)buffer + buffer[1]) + *check;
+					plane = (sdPlane *)((int)buffer + buffer[1]) + *check;
 
 					if (plane->surface > 31)
 						break;
@@ -571,7 +655,7 @@ int RoadInCell(VECTOR *pos)
 		}
 		else if ((*check & 0xE000) == 0)
 		{
-			plane = (_sdPlane *)((int)buffer + *check * sizeof(_sdPlane) + buffer[1]);
+			plane = (sdPlane *)((int)buffer + *check * sizeof(sdPlane) + buffer[1]);
 		}
 		else
 			plane = NULL;
@@ -593,7 +677,7 @@ int RoadInCell(VECTOR *pos)
 
 // decompiled code
 // original method signature: 
-// struct _sdPlane * /*$ra*/ sdGetCell(struct VECTOR *pos /*$s3*/)
+// sdPlane * /*$ra*/ sdGetCell(VECTOR *pos /*$s3*/)
  // line 400, offset 0x0001346c
 	/* begin block 1 */
 		// Start line: 401
@@ -602,9 +686,9 @@ int RoadInCell(VECTOR *pos)
 	// 		char *buffer; // $s1
 	// 		short *surface; // $s0
 	// 		int nextLevel; // $s2
-	// 		struct _sdPlane *plane; // $a1
-	// 		struct XYPAIR cell; // stack offset -40
-	// 		struct XYPAIR cellPos; // stack offset -32
+	// 		sdPlane *plane; // $a1
+	// 		XYPAIR cell; // stack offset -40
+	// 		XYPAIR cellPos; // stack offset -32
 
 		/* begin block 1.1 */
 			// Start line: 441
@@ -645,10 +729,10 @@ int RoadInCell(VECTOR *pos)
 int sdLevel = 0; // pathfinding value
 
 // [D] [T]
-_sdPlane * sdGetCell(VECTOR *pos)
+sdPlane * sdGetCell(VECTOR *pos)
 {
 	int nextLevel;
-	_sdPlane *plane;
+	sdPlane *plane;
 	short *surface;
 	short *BSPSurface;
 	short *buffer;
@@ -659,6 +743,10 @@ _sdPlane * sdGetCell(VECTOR *pos)
 
 	cellPos.x = pos->vx - 512;
 	cellPos.y = pos->vz - 512;
+
+	// [A] WARNING!
+	// retail version of game with exe dated before 20th October 2000 (so called 1.0) is only supported
+	// the later version of the game do have problem with height or BSP, so Havana's secret base ground is not solid
 
 	buffer = RoadMapDataRegions[cellPos.x >> 0x10 & 1U ^ (cells_across >> 6 & 1U) + (cellPos.y >> 0xf & 2U) ^cells_down >> 5 & 2U];
 
@@ -707,7 +795,7 @@ _sdPlane * sdGetCell(VECTOR *pos)
 				surface = BSPSurface;
 			} while (nextLevel);
 
-			plane = (_sdPlane *)((int)buffer + *BSPSurface * sizeof(_sdPlane) + buffer[1]);
+			plane = (sdPlane *)((int)buffer + *BSPSurface * sizeof(sdPlane) + buffer[1]);
 
 			if ((((uint)plane & 3) == 0) && (*(int *)plane != -1)) 
 			{
@@ -731,7 +819,7 @@ _sdPlane * sdGetCell(VECTOR *pos)
 
 // decompiled code
 // original method signature: 
-// short * /*$ra*/ sdGetBSP(struct _sdNode *node /*$a3*/, struct XYPAIR *pos /*$a1*/)
+// short * /*$ra*/ sdGetBSP(_sdNode *node /*$a3*/, XYPAIR *pos /*$a1*/)
  // line 505, offset 0x00013848
 	/* begin block 1 */
 		// Start line: 506

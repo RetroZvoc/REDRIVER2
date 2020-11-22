@@ -121,7 +121,7 @@ void ProcessCosmeticsLump(char *lump_ptr, int lump_size)
 
 		if (model != -1) 
 		{
-			offset = *(int*)(lump_ptr + model * 4);
+			offset = *(int*)(lump_ptr + model * sizeof(int));
 
 			ptr = (lump_ptr + offset);
 
@@ -136,7 +136,8 @@ void ProcessCosmeticsLump(char *lump_ptr, int lump_size)
 	// [A] fix vegas limo cosmetic bug in advance
 	if(GameLevel == 2)
 	{
-		offset = *(int*)(lump_ptr + 8 * 4);
+		model = 8;
+		offset = *(int*)(lump_ptr + model * sizeof(int));
 
 		ptr = (lump_ptr + offset);
 		memcpy(&gVegasLimoCosmetic, ptr, sizeof(CAR_COSMETICS));
@@ -149,15 +150,15 @@ void ProcessCosmeticsLump(char *lump_ptr, int lump_size)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddReverseLight(struct _CAR_DATA *cp /*$s1*/)
+// void /*$ra*/ AddReverseLight(CAR_DATA *cp /*$s1*/)
  // line 252, offset 0x0002f994
 	/* begin block 1 */
 		// Start line: 253
 		// Start offset: 0x0002F994
 		// Variables:
-	// 		struct CAR_COSMETICS *car_cos; // $a1
-	// 		struct SVECTOR v1; // stack offset -32
-	// 		struct CVECTOR col; // stack offset -24
+	// 		CAR_COSMETICS *car_cos; // $a1
+	// 		SVECTOR v1; // stack offset -32
+	// 		CVECTOR col; // stack offset -24
 	// 		short cogOffset; // $s2
 	/* end block 1 */
 	// End offset: 0x0002FAEC
@@ -176,7 +177,7 @@ void ProcessCosmeticsLump(char *lump_ptr, int lump_size)
 /* WARNING: Could not reconcile some variable overlaps */
 
 // [D] [T]
-void AddReverseLight(_CAR_DATA *cp)
+void AddReverseLight(CAR_DATA *cp)
 {
 	CAR_COSMETICS *car_cos;
 	SVECTOR v1;
@@ -196,13 +197,13 @@ void AddReverseLight(_CAR_DATA *cp)
 
 	if (cp->ap.damage[4] < 500)
 	{
-		ShowCarlight(&v1, cp, &col, 0xe, &light_texture, 0);
+		ShowCarlight(&v1, cp, &col, 14, &light_texture, 0);
 	}
 
 	if (cp->ap.damage[3] < 500) 
 	{
 		v1.vx = car_cos->cog.vx * 2 - v1.vx;
-		ShowCarlight(&v1, cp, &col, 0xe, &light_texture, 0);
+		ShowCarlight(&v1, cp, &col, 14, &light_texture, 0);
 	}
 }
 
@@ -255,16 +256,16 @@ void SetupSpecCosmetics(char *loadbuffer)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddIndicatorLight(struct _CAR_DATA *cp /*$s0*/, int Type /*$s6*/)
+// void /*$ra*/ AddIndicatorLight(CAR_DATA *cp /*$s0*/, int Type /*$s6*/)
  // line 325, offset 0x0002faec
 	/* begin block 1 */
 		// Start line: 326
 		// Start offset: 0x0002FAEC
 		// Variables:
-	// 		struct CAR_COSMETICS *car_cos; // $a1
-	// 		struct CVECTOR col; // stack offset -56
-	// 		struct SVECTOR vfrnt; // stack offset -48
-	// 		struct SVECTOR vback; // stack offset -40
+	// 		CAR_COSMETICS *car_cos; // $a1
+	// 		CVECTOR col; // stack offset -56
+	// 		SVECTOR vfrnt; // stack offset -48
+	// 		SVECTOR vback; // stack offset -40
 	// 		char tempcol; // $s1
 	// 		char *life; // $a0
 	// 		char *life2; // $s3
@@ -286,7 +287,7 @@ void SetupSpecCosmetics(char *loadbuffer)
 /* WARNING: Could not reconcile some variable overlaps */
 
 // [D] [T]
-void AddIndicatorLight(_CAR_DATA *cp, int Type)
+void AddIndicatorLight(CAR_DATA *cp, int Type)
 {
 	uint brightness;
 	char *life;
@@ -334,12 +335,12 @@ void AddIndicatorLight(_CAR_DATA *cp, int Type)
 		if (cp->ap.damage[4] < 500)
 		{
 			*life2 += brightness >> 3;
-			ShowCarlight(&vback, cp, &col, 0x14, &light_texture, 0);
+			ShowCarlight(&vback, cp, &col, 20, &light_texture, 0);
 		}
 
 		if (cp->ap.damage[0] < 500) 
 		{
-			ShowCarlight(&vfrnt, cp, &col, 0x14, &light_texture, 1);
+			ShowCarlight(&vfrnt, cp, &col, 20, &light_texture, 1);
 		}
 	}
 
@@ -365,17 +366,17 @@ void AddIndicatorLight(_CAR_DATA *cp, int Type)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddBrakeLight(struct _CAR_DATA *cp /*$s5*/)
+// void /*$ra*/ AddBrakeLight(CAR_DATA *cp /*$s5*/)
  // line 407, offset 0x0002fde4
 	/* begin block 1 */
 		// Start line: 408
 		// Start offset: 0x0002FDE4
 		// Variables:
-	// 		struct CAR_COSMETICS *car_cos; // $a1
-	// 		struct SVECTOR v1; // stack offset -88
-	// 		struct SVECTOR v2; // stack offset -80
-	// 		struct SVECTOR vec; // stack offset -72
-	// 		struct CVECTOR col; // stack offset -64
+	// 		CAR_COSMETICS *car_cos; // $a1
+	// 		SVECTOR v1; // stack offset -88
+	// 		SVECTOR v2; // stack offset -80
+	// 		SVECTOR vec; // stack offset -72
+	// 		CVECTOR col; // stack offset -64
 	// 		char *life2; // $s2
 	// 		short doubleFlag; // stack offset -56
 	// 		short verticalFlag; // stack offset -52
@@ -395,7 +396,7 @@ void AddIndicatorLight(_CAR_DATA *cp, int Type)
 /* WARNING: Could not reconcile some variable overlaps */
 
 // [D] [T]
-void AddBrakeLight(_CAR_DATA *cp)
+void AddBrakeLight(CAR_DATA *cp)
 {
 	short damageFac;
 	int damIndex;
@@ -418,90 +419,93 @@ void AddBrakeLight(_CAR_DATA *cp)
 
 	life2 = &cp->ap.life2;
 
-	if (car_cos->extraInfo & 8)
-	{
-		vec = car_cos->brakeLight;
+	if (!(car_cos->extraInfo & 8))
+		return;
 
-		vec.vx += car_cos->cog.vx;
-		vec.vy += car_cos->cog.vy;
-		vec.vz += car_cos->cog.vz;
+	vec = car_cos->brakeLight;
 
-		offset = ((car_cos->extraInfo & 0x300) >> 6) + 10;
-		cogOffset = vec.vz + car_cos->cog.vz;
+	vec.vx += car_cos->cog.vx;
+	vec.vy += car_cos->cog.vy;
+	vec.vz += car_cos->cog.vz;
 
-		if (car_cos->extraInfo & 8) 
+	offset = ((car_cos->extraInfo & 0x300) >> 6) + 10;
+	cogOffset = vec.vz + car_cos->cog.vz;
+
+	loop = 0;
+
+	doubleFlag = (car_cos->extraInfo & 0x4000) != 0;
+	verticalFlag = (car_cos->extraInfo & 0x1000) != 0;
+
+	do {
+		damIndex = (4 - loop);
+
+		if (doubleFlag)
 		{
-			loop = 0;
+			if (verticalFlag)
+			{
+				v1 = vec;
+				v2 = vec;
 
-			do {
-				damIndex = (4 - loop);
+				damageFac = cp->ap.damage[damIndex] >> 6;
 
-				if ((car_cos->extraInfo & 0x4000) == 0)
+				v1.vz = cogOffset + damageFac;
+				v2.vz = cogOffset + damageFac;
+
+				v1.vx = vec.vx;
+				v1.vy = offset + vec.vy;
+				v2.vy = vec.vy - offset;
+
+				if (cp->ap.damage[damIndex] < 500)
 				{
-					v1 = vec;
-
-					if (cp->ap.damage[damIndex] < 500)
-					{
-						ShowCarlight(&v1, cp, &col, 0x11, &light_texture, 0);
-						*life2 += 8;
-					}
+					ShowCarlight(&v1, cp, &col, 17, &light_texture, 0);
+					ShowCarlight(&v2, cp, &col, 17, &light_texture, 0);
+					*life2 += 8;
 				}
-				else if ((car_cos->extraInfo & 0x1000) == 0)
+			}
+			else
+			{
+				v1 = vec;
+				v2 = vec;
+
+				damageFac = cp->ap.damage[damIndex] >> 6;
+				v1.vz = cogOffset + damageFac;
+				v2.vz = cogOffset + damageFac;
+
+				v1.vx = offset + vec.vx;
+				v2.vx = vec.vx - offset;
+
+				if (cp->ap.damage[damIndex] < 500)
 				{
-					v1 = vec;
-					v2 = vec;
-
-					damageFac = cp->ap.damage[damIndex] >> 6;
-					v1.vz = cogOffset + damageFac;
-					v2.vz = cogOffset + damageFac;
-
-					v1.vx = offset + vec.vx;
-					v2.vx = vec.vx - offset;
-
-					if (cp->ap.damage[damIndex] < 500)
-					{
-						ShowCarlight(&v1, cp, &col, 17, &light_texture, 0);
-						ShowCarlight(&v2, cp, &col, 17, &light_texture, 0);
-						*life2 += 8;
-					}
+					ShowCarlight(&v1, cp, &col, 17, &light_texture, 0);
+					ShowCarlight(&v2, cp, &col, 17, &light_texture, 0);
+					*life2 += 8;
 				}
-				else
-				{
-					v1 = vec;
-					v2 = vec;
-
-					damageFac = cp->ap.damage[damIndex] >> 6;
-
-					v1.vz = cogOffset + damageFac;
-					v2.vz = cogOffset + damageFac;
-
-					v1.vx = vec.vx;
-					v1.vy = offset + vec.vy;
-					v2.vy = vec.vy - offset;
-
-					if (cp->ap.damage[damIndex] < 500)
-					{
-						ShowCarlight(&v1, cp, &col, 0x11, &light_texture, 0);
-						ShowCarlight(&v2, cp, &col, 0x11, &light_texture, 0);
-						*life2 += 8;
-					}
-				}
-
-				offset = -offset;
-				
-				vec.vx = car_cos->cog.vx * 2 - vec.vx;
-
-				loop++;
-			} while (loop < 2);
+			}
 		}
-	}
+		else
+		{
+			v1 = vec;
+
+			if (cp->ap.damage[damIndex] < 500)
+			{
+				ShowCarlight(&v1, cp, &col, 17, &light_texture, 0);
+				*life2 += 8;
+			}
+		}
+
+		offset = -offset;
+				
+		vec.vx = car_cos->cog.vx * 2 - vec.vx;
+
+		loop++;
+	} while (loop < 2);
 }
 
 
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddCopCarLight(struct _CAR_DATA *cp /*$t0*/)
+// void /*$ra*/ AddCopCarLight(CAR_DATA *cp /*$t0*/)
  // line 514, offset 0x00030148
 	/* begin block 1 */
 		// Start line: 515
@@ -518,9 +522,9 @@ void AddBrakeLight(_CAR_DATA *cp)
 	// 		static char xpos1[8]; // offset 0x10
 	// 		int sign; // $t1
 	// 		char *coplife; // $s2
-	// 		struct SVECTOR v1; // stack offset -88
-	// 		struct CVECTOR col; // stack offset -80
-	// 		struct CAR_COSMETICS *car_cos; // $s0
+	// 		SVECTOR v1; // stack offset -88
+	// 		CVECTOR col; // stack offset -80
+	// 		CAR_COSMETICS *car_cos; // $s0
 	// 		short cogOffset; // $fp
 	/* end block 1 */
 	// End offset: 0x00030514
@@ -537,7 +541,7 @@ void AddBrakeLight(_CAR_DATA *cp)
 	// End Line: 1348
 
 // [D] [T]
-void AddCopCarLight(_CAR_DATA *cp)
+void AddCopCarLight(CAR_DATA *cp)
 {
 	static char xpos1[8] = {
 		48, 32, 16,  0,
@@ -655,18 +659,18 @@ void AddCopCarLight(_CAR_DATA *cp)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddNightLights(struct _CAR_DATA *cp /*$s6*/)
+// void /*$ra*/ AddNightLights(CAR_DATA *cp /*$s6*/)
  // line 653, offset 0x00030544
 	/* begin block 1 */
 		// Start line: 654
 		// Start offset: 0x00030544
 		// Variables:
-	// 		static struct MATRIX work_matrix; // offset 0x0
-	// 		struct CAR_COSMETICS *car_cos; // $fp
-	// 		struct SVECTOR Position1; // stack offset -104
-	// 		struct SVECTOR Position2; // stack offset -96
-	// 		struct SVECTOR vec; // stack offset -88
-	// 		struct CVECTOR col; // stack offset -80
+	// 		static MATRIX work_matrix; // offset 0x0
+	// 		CAR_COSMETICS *car_cos; // $fp
+	// 		SVECTOR Position1; // stack offset -104
+	// 		SVECTOR Position2; // stack offset -96
+	// 		SVECTOR vec; // stack offset -88
+	// 		CVECTOR col; // stack offset -80
 	// 		int lit; // stack offset -72
 	// 		int lightFlag; // $t0
 	// 		char *life2; // stack offset -68
@@ -696,7 +700,7 @@ int gPlayerCarLights = 0;
 int gcar_num = 0;
 
 // [D] [T]
-void AddNightLights(_CAR_DATA *cp)
+void AddNightLights(CAR_DATA *cp)
 {
 	short offset;
 	int lightFlag;
@@ -827,10 +831,7 @@ void AddNightLights(_CAR_DATA *cp)
 			lightFlag = 2 << (loop & 0x1f);
 			damIndex = (4 - loop);
 
-			if (cp->controlType == CONTROL_TYPE_PLAYER)
-				col.r = 56;
-			else
-				col.r = 255;
+			col.r = 110;
 
 			col.b = 0;
 			col.g = 0;
@@ -907,16 +908,16 @@ void AddNightLights(_CAR_DATA *cp)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddSmokingEngine(struct _CAR_DATA *cp /*$s0*/, int black_smoke /*$s2*/, int WheelSpeed /*$s3*/)
+// void /*$ra*/ AddSmokingEngine(CAR_DATA *cp /*$s0*/, int black_smoke /*$s2*/, int WheelSpeed /*$s3*/)
  // line 989, offset 0x00030d9c
 	/* begin block 1 */
 		// Start line: 990
 		// Start offset: 0x00030D9C
 		// Variables:
-	// 		struct VECTOR SmokePos; // stack offset -64
-	// 		struct CAR_COSMETICS *car_cos; // $a0
-	// 		struct VECTOR Drift; // stack offset -48
-	// 		struct SVECTOR svec; // stack offset -32
+	// 		VECTOR SmokePos; // stack offset -64
+	// 		CAR_COSMETICS *car_cos; // $a0
+	// 		VECTOR Drift; // stack offset -48
+	// 		SVECTOR svec; // stack offset -32
 	/* end block 1 */
 	// End offset: 0x00030F90
 	// End Line: 1038
@@ -931,7 +932,7 @@ void AddNightLights(_CAR_DATA *cp)
 int gDoSmoke = 1;
 
 // [D] [T]
-void AddSmokingEngine(_CAR_DATA *cp, int black_smoke, int WheelSpeed)
+void AddSmokingEngine(CAR_DATA *cp, int black_smoke, int WheelSpeed)
 {
 	CAR_COSMETICS *car_cos;
 	VECTOR SmokePos;
@@ -958,15 +959,15 @@ void AddSmokingEngine(_CAR_DATA *cp, int black_smoke, int WheelSpeed)
 		InitFXPos(&SmokePos, &svec, cp);
 		GetSmokeDrift(&Drift);
 
-		if (black_smoke == 0)
-			Setup_Smoke(&SmokePos, 100, 400, 2, WheelSpeed, &Drift, 0);
+		if (black_smoke)
+			Setup_Smoke(&SmokePos, 100, 500, SMOKE_BLACK, WheelSpeed, &Drift, 0);
 		else
-			Setup_Smoke(&SmokePos, 100, 500, 1, WheelSpeed, &Drift, 0);
+			Setup_Smoke(&SmokePos, 100, 400, SMOKE_WHITE, WheelSpeed, &Drift, 0);
 	}
 }
 
 // [A] custom function for bringing back exhaust
-void AddExhaustSmoke(_CAR_DATA *cp, int black_smoke, int WheelSpeed)
+void AddExhaustSmoke(CAR_DATA *cp, int black_smoke, int WheelSpeed)
 {
 	CAR_COSMETICS *car_cos;
 	VECTOR SmokePos;
@@ -1013,25 +1014,25 @@ void AddExhaustSmoke(_CAR_DATA *cp, int black_smoke, int WheelSpeed)
 		Drift.vx -= FIXEDH(smokedir.vx) / 2;
 		Drift.vz -= FIXEDH(smokedir.vz) / 2;
 
-		if (black_smoke == 0)
-			Setup_Smoke(&SmokePos, 10, 40, 2, WheelSpeed, &Drift, 1);
+		if (black_smoke)
+			Setup_Smoke(&SmokePos, 10, 40, SMOKE_BLACK, WheelSpeed, &Drift, 1);
 		else
-			Setup_Smoke(&SmokePos, 10, 40, 1, WheelSpeed, &Drift, 1);
+			Setup_Smoke(&SmokePos, 10, 40, SMOKE_WHITE, WheelSpeed, &Drift, 1);
 	}
 }
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AddFlamingEngine(struct _CAR_DATA *cp /*$s1*/)
+// void /*$ra*/ AddFlamingEngine(CAR_DATA *cp /*$s1*/)
  // line 1048, offset 0x00030fac
 	/* begin block 1 */
 		// Start line: 1049
 		// Start offset: 0x00030FAC
 		// Variables:
-	// 		struct VECTOR SmokePos; // stack offset -56
-	// 		struct SVECTOR svec; // stack offset -40
-	// 		struct CAR_COSMETICS *car_cos; // $a0
-	// 		struct VECTOR Drift; // stack offset -32
+	// 		VECTOR SmokePos; // stack offset -56
+	// 		SVECTOR svec; // stack offset -40
+	// 		CAR_COSMETICS *car_cos; // $a0
+	// 		VECTOR Drift; // stack offset -32
 	/* end block 1 */
 	// End offset: 0x0003114C
 	// End Line: 1084
@@ -1044,7 +1045,7 @@ void AddExhaustSmoke(_CAR_DATA *cp, int black_smoke, int WheelSpeed)
 /* WARNING: Could not reconcile some variable overlaps */
 
 // [D] [T]
-void AddFlamingEngine(_CAR_DATA *cp)
+void AddFlamingEngine(CAR_DATA *cp)
 {
 	CAR_COSMETICS *car_cos;
 	VECTOR SmokePos;
@@ -1070,7 +1071,7 @@ void AddFlamingEngine(_CAR_DATA *cp)
 		Drift.vy = 0;
 		Drift.vz = 0;
 
-		Setup_Smoke(&SmokePos, 0x32, 100, 4, 0, &Drift, 0);
+		Setup_Smoke(&SmokePos, 50, 100, SMOKE_FIRE, 0, &Drift, 0);
 	}
 }
 

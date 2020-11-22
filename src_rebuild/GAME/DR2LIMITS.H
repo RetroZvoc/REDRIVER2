@@ -4,6 +4,7 @@
 // DRIVER 2 game engine limits
 // please populate this file only with engine limits during refactoring
 
+#define MAX_MODEL_SLOTS			1536		// DO NOT CHANGE. No effect in upping it - limited by cell types
 #define MAX_CARS				20
 
 #define MAX_CAR_MODELS			5
@@ -13,6 +14,7 @@
 #define MAX_TRAFFIC_CARS		19
 #define MAX_EXPLOSION_OBJECTS	5
 #define MAX_THROWN_BOMBS		5
+#define MAX_MOTION_CAPTURE		24
 
 // replay definitions.
 // DO NOT EDIT, breaks compatibility!
@@ -29,5 +31,15 @@
 #define MAX_SMASHED_OBJECTS		8
 #define MAX_LAMP_STREAKS		21
 #define MAX_RAIN_DROPS			180
+
+// driving games limit
+#define MAX_SMASHED_CONES		6
+
+// sound limits
+#define MAX_SFX_CHANNELS		16		// DON'T CHANGE unless you have more than 24 channels (no PSX code)
+#define MAX_LEVEL_ENVSOUNDS		32
+#define MAX_SIREN_NOISES		2
+#define MAX_CAR_NOISES			4
+
 
 #endif // DRLIMITS_H

@@ -12,6 +12,7 @@
 #include "BCOLLIDE.H"
 #include "CAMERA.H"
 #include "CONVERT.H"
+#include "GAMESND.H"
 #include "MAP.H"
 #include "SOUND.H"
 #include "GLAUNCH.H"
@@ -22,7 +23,7 @@
 #include "RAND.H"
 
 MODEL* gTrailblazerConeModel; 
-SMASHED_CONE smashed_cones[6];
+SMASHED_CONE smashed_cones[MAX_SMASHED_CONES];
 
 TRAILBLAZER_DATA *gTrailblazerData;
 int gTrailblazerConeCount;
@@ -61,10 +62,10 @@ static int gTrailblazerPrevConeDelay = 0;
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-static int wrongside[2][6];
+static int wrongside[2][MAX_SMASHED_CONES];
 static int current_smashed_cone = 0;
 
-// [D]
+// [D] [T]
 void InitDrivingGames(void)
 {
 	char filename[64];
@@ -77,7 +78,7 @@ void InitDrivingGames(void)
 	gPlayerScore.P2time = 0;
 	gPlayerScore.P2items = 0;
 
-	if ((GameType == GAME_GATERACE) || (GameType == GAME_TRAILBLAZER)) 
+	if (GameType == GAME_GATERACE || GameType == GAME_TRAILBLAZER) 
 	{
 		if (CutsceneBuffer.bytesFree < 1200)
 		{
@@ -98,25 +99,19 @@ void InitDrivingGames(void)
 			Loadfile(filename, (char *)gTrailblazerData);
 	}
 
-    i = 0;
-	while (i < 2)
+	for (i = 0; i < 2; i++)
 	{
-        j = 0;
+		for (j = 0; j < MAX_SMASHED_CONES; j++)
+            wrongside[i][j] = 0;
+    }
 
-		while (j < 6)
-            wrongside[i][j++] = 0;
-
-        i++;
-    };
-
-    i = 0;
-    while(i < 6)
+	for (i = 0; i < MAX_SMASHED_CONES; i++)
 	{
 		smashed_cones[i].cone = -1;
 		smashed_cones[i].active = 0;
 		smashed_cones[i].side = 0;
-		smashed_cones[i++].rot_speed = 0;
-    };
+		smashed_cones[i].rot_speed = 0;
+    }
 
     current_smashed_cone = 0;
     gTrailblazerPrevConeDelay = 0;
@@ -132,8 +127,8 @@ void InitDrivingGames(void)
 		// Start line: 292
 		// Start offset: 0x0004326C
 		// Variables:
-	// 		struct _CAR_DATA *cp; // $a2
-	// 		struct VECTOR vel; // stack offset -96
+	// 		CAR_DATA *cp; // $a2
+	// 		VECTOR vel; // stack offset -96
 	// 		int i; // $s3
 	// 		int j; // $v1
 	// 		int k; // $a0
@@ -144,8 +139,8 @@ void InitDrivingGames(void)
 			// Start line: 351
 			// Start offset: 0x00043354
 			// Variables:
-		// 		struct VECTOR pos1; // stack offset -80
-		// 		struct VECTOR pos2; // stack offset -64
+		// 		VECTOR pos1; // stack offset -80
+		// 		VECTOR pos2; // stack offset -64
 		// 		int x; // $t0
 		// 		int z; // $a1
 		// 		int r; // $v0
@@ -159,7 +154,7 @@ void InitDrivingGames(void)
 			// Start line: 435
 			// Start offset: 0x00043700
 			// Variables:
-		// 		struct VECTOR pos; // stack offset -80
+		// 		VECTOR pos; // stack offset -80
 		/* end block 1.2 */
 		// End offset: 0x00043800
 		// End Line: 456
@@ -189,187 +184,160 @@ void InitDrivingGames(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void HandleDrivingGames(void)
 {
-	char cVar1;
-	bool bVar2;
-	int iVar3;
-	int *piVar4;
-	int iVar5;
-	TRAILBLAZER_DATA *pTVar6;
-	int player_id;
-	int iVar7;
-	int iVar8;
-	uint uVar9;
-	int iVar10;
-	long *plVar11;
-	int iVar12;
+	char playerCarId;
+	TRAILBLAZER_DATA *tbd;
+	int id;
 	VECTOR vel;
 	VECTOR pos1;
 	VECTOR pos2;
+	int i, j, k;
+	int side;
+	int cone;
 
 	if (gTrailblazerPrevConeDelay > 0) 
 		gTrailblazerPrevConeDelay--;
 
-	if (GameType == GAME_GATERACE) 
+	if (gTrailblazerData)
 	{
-		if (gTrailblazerData == NULL)
-			goto LAB_0004386c;
-
-		MoveSmashedCones();
-
-		if (NumPlayers != 0)
+		if (GameType == GAME_GATERACE)
 		{
-			player_id = 0;
-		LAB_0004330c:
-			iVar10 = 0;
-			iVar12 = player_id + 1;
-			plVar11 = &Mission.timer[player_id].count;
-			piVar4 = wrongside[player_id];
-		LAB_0004333c:
+			MoveSmashedCones();
 
-			if (99 < gTrailblazerConeIndex + iVar10) 
-				goto LAB_00043658;
-
-			GetConePos(gTrailblazerConeIndex + iVar10, &pos1, 0);
-			GetConePos(gTrailblazerConeIndex + iVar10, &pos2, 1);
-
-			iVar5 = CarConeCollision(&pos1, (int)player[player_id].playerCarId);
-			uVar9 = (uint)(iVar5 != 0);
-			iVar3 = CarConeCollision(&pos2, (int)player[player_id].playerCarId);
-			iVar5 = gTrailblazerConeIndex;
-
-			if (iVar3 != 0)
-				uVar9 = 2;
-
-			if (uVar9 == 0) 
+			for (id = 0; id < NumPlayers; id++)
 			{
-				pTVar6 = gTrailblazerData + gTrailblazerConeIndex + iVar10;
-				uVar9 = pTVar6->rot & 0xfff;
-				iVar8 = player[player_id].pos[0] - pTVar6->x;
-				iVar3 = player[player_id].pos[2] - pTVar6->z;
+				playerCarId = player[id].playerCarId;
 
-				if (iVar8 * rcossin_tbl[uVar9 * 2] + iVar3 * rcossin_tbl[uVar9 * 2 + 1] < 1) 
+				for (i = 0; i < MAX_SMASHED_CONES; i++)
 				{
-					*piVar4 = 1;
-					goto LAB_00043658;
-				}
-
-				iVar8 = iVar8 * rcossin_tbl[uVar9 * 2 + 1];
-
-				if (wrongside[player_id * 6 + iVar10] == 0)
-					goto LAB_00043658;
-
-				iVar3 = iVar3 * rcossin_tbl[uVar9 * 2];
-				iVar7 = iVar8 - iVar3;
-				wrongside[player_id][iVar10] = 0;
-
-				if (iVar7 < 0)
-					iVar7 = iVar3 - iVar8;
-
-				if ((600 - (iVar5 * 400 + iVar10) / 100) * 0x1000 <= iVar7) 
-					goto LAB_00043658;
-
-				gTrailblazerConeIndex = iVar5 + 1 + iVar10;
-				plVar11 = &Mission.timer[player_id].count;
-				gTrailblazerPrevConeDelay = 10;
-				gTrailblazerConeCount = gTrailblazerConeCount + 1;
-				*plVar11 = *plVar11 + 3000;
-				if (player_id == 0)
-					gPlayerScore.items++;
-				else
-					gPlayerScore.P2items++;
-
-				player_id = 0;
-				iVar10 = 1;
-				do {
-					iVar5 = 5;
-					piVar4 = wrongside[player_id] + 5;
-
-					do {
-						*piVar4 = 0;
-						iVar5 = iVar5 + -1;
-						piVar4 = piVar4 + -1;
-					} while (-1 < iVar5);
-
-					bVar2 = iVar10 < 2;
-					player_id = iVar10;
-					iVar10 = iVar10 + 1;
-				} while (bVar2);
-			}
-			else
-			{
-				iVar5 = car_data[player[player_id].playerCarId].st.n.linearVelocity[0];
-
-				vel.vx = iVar5 >> 0xc;
-				vel.vy = -0x11;
-				iVar5 = car_data[player[player_id].playerCarId].st.n.linearVelocity[2];
-
-				vel.vz = iVar5 >> 0xc;
-				SetSmashedCone(gTrailblazerConeIndex + iVar10, &vel, player_id, uVar9 - 1);
-				gTrailblazerConeIndex = gTrailblazerConeIndex + 1 + iVar10;
-				*plVar11 = *plVar11 + -3000;
-				SetPlayerMessage(player_id, "-1 second", 2, 1);
-			}
-			goto LAB_00043668;
-		}
-	}
-	else
-	{
-		if (GameType != GAME_TRAILBLAZER || gTrailblazerData == NULL) 
-			goto LAB_0004386c;
-
-		MoveSmashedCones();
-
-		if (NumPlayers != 0) 
-		{
-			player_id = 0;
-			do {
-				iVar10 = 0;
-				iVar12 = player_id + 1;
-				do {
-					if (gTrailblazerConeIndex + iVar10 < 100) 
+					cone = gTrailblazerConeIndex + i;
+					
+					if (cone < 100)
 					{
-						GetConePos(gTrailblazerConeIndex + iVar10, &pos1, -1);
-						iVar5 = CarConeCollision(&pos1, (int)player[player_id].playerCarId);
-						if (iVar5 != 0)
+						GetConePos(cone, &pos1, 0);
+						GetConePos(cone, &pos2, 1);
+
+						side = 0;
+
+						if (CarConeCollision(&pos1, playerCarId))
+							side = 1;
+						else if (CarConeCollision(&pos2, playerCarId))
+							side = 2;
+
+						if (side == 0)
 						{
-							cVar1 = player[player_id].playerCarId;
-							plVar11 = &Mission.timer[player_id].count;
-							*plVar11 = *plVar11 + 3000;
-							iVar5 = car_data[cVar1].st.n.linearVelocity[0];
+							int sn, cs;
+							int dx, dz;
+							int r, radius;
 
-							vel.vx = iVar5 >> 0xc;
-							vel.vy = -0x11;
-							iVar5 = car_data[cVar1].st.n.linearVelocity[2];
+							tbd = &gTrailblazerData[cone];
 
-							vel.vz = iVar5 >> 0xc;
-							SetSmashedCone(gTrailblazerConeIndex + iVar10, &vel, player_id, 0);
+							r = tbd->rot & 0xfff;
+							radius = (600 - (gTrailblazerConeIndex * 400 + i) / 100) * 4096;
+
+							sn = rcossin_tbl[r * 2];
+							cs = rcossin_tbl[r * 2 + 1];
+
+							dx = player[id].pos[0] - tbd->x;
+							dz = player[id].pos[2] - tbd->z;
+
+							if (dx * sn + dz * cs < 1)
+							{
+								wrongside[id][i] = 1;
+								continue;
+							}
+
+							if (wrongside[id][i] == 0)
+								continue;
+
+							wrongside[id][i] = 0;
+
+							if (ABS(dx * cs - dz * sn) < radius)
+							{
+								gTrailblazerConeCount++;
+
+								Mission.timer[id].count += 3000;
+
+								if (id == 0)
+									gPlayerScore.items++;
+								else
+									gPlayerScore.P2items++;
+
+								gTrailblazerConeIndex += i + 1;
+								gTrailblazerPrevConeDelay = 10;
+							}
+
+							// reset side
+							for(j = 0; j < 2; j++)
+							{
+								for(k = 0; k < MAX_SMASHED_CONES; k++)
+									wrongside[j][k] = 0;
+							}
+						}
+						else
+						{
+							vel.vx = FIXED(car_data[playerCarId].st.n.linearVelocity[0]);
+							vel.vy = -17;
+							vel.vz = FIXED(car_data[playerCarId].st.n.linearVelocity[2]);
+
+							SetSmashedCone(cone, &vel, id, side - 1);
+							gTrailblazerConeIndex += i + 1;
+
+							Mission.timer[id].count -= 3000;
+							SetPlayerMessage(id, "-1 second", 2, 1);
+						}
+					}
+				}
+			}
+
+			if (gTrailblazerConeIndex == 100)
+				MissionTargets[NumPlayers - 1].data[1] |= 0x102;
+		}
+		else if (GameType == GAME_TRAILBLAZER)
+		{
+			MoveSmashedCones();
+
+			for (id = 0; id < NumPlayers; id++)
+			{
+				playerCarId = player[id].playerCarId;
+				
+				for (i = 0; i < MAX_SMASHED_CONES; i++)
+				{
+					cone = gTrailblazerConeIndex + i;
+					
+					if (cone < 100)
+					{
+						GetConePos(cone, &pos1, -1);
+
+						if (CarConeCollision(&pos1, playerCarId))
+						{
+							Mission.timer[id].count += 3000;
+
+							vel.vx = FIXED(car_data[playerCarId].st.n.linearVelocity[0]);
+							vel.vy = -17;
+							vel.vz = FIXED(car_data[playerCarId].st.n.linearVelocity[2]);
+								
+							SetSmashedCone(cone, &vel, id, 0);
+							
 							gTrailblazerConeCount++;
-							gTrailblazerConeIndex += 1 + iVar10;
+							gTrailblazerConeIndex += i + 1;
 
-							if (player_id == 0)
+							if (id == 0)
 								gPlayerScore.items++;
 							else
 								gPlayerScore.P2items++;
-
 						}
 					}
-					iVar10 = iVar10 + 1;
-				} while (iVar10 < 6);
+				}
+			}
 
-				player_id = iVar12;
-			} while (iVar12 < NumPlayers);
+			if (gTrailblazerConeIndex == 100)
+				MissionTargets[NumPlayers - 1].data[1] |= 0x102;
 		}
 	}
 
-	// FUCK, loosing the flow...
-LAB_00043828:
-	if (gTrailblazerConeIndex == 100) 
-		MissionTargets[NumPlayers-1].data[1] =	MissionTargets[NumPlayers-1].data[1] | 0x102;
-
-LAB_0004386c:
 	if (Mission.timer[0].count < 0)
 		Mission.timer[0].count = 0;
 
@@ -378,25 +346,6 @@ LAB_0004386c:
 
 	gPlayerScore.time = Mission.timer[0].count;
 	gPlayerScore.P2time = Mission.timer[1].count;
-
-	return;
-
-LAB_00043658:
-	iVar10 = iVar10 + 1;
-	piVar4 = piVar4 + 1;
-
-	if (5 < iVar10) 
-		goto LAB_00043668;
-
-	goto LAB_0004333c;
-
-LAB_00043668:
-	player_id = iVar12;
-
-	if (NumPlayers <= iVar12)
-		goto LAB_00043828;
-
-	goto LAB_0004330c;
 }
 
 
@@ -409,7 +358,7 @@ LAB_00043668:
 		// Start line: 479
 		// Start offset: 0x000438DC
 		// Variables:
-	// 		struct VECTOR wpos; // stack offset -24
+	// 		VECTOR wpos; // stack offset -24
 	// 		int i; // $s0
 	/* end block 1 */
 	// End offset: 0x000439FC
@@ -437,72 +386,59 @@ LAB_00043668:
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DrawDrivingGames(void)
 {
-	bool bVar1;
 	int cone;
 	int i;
 	VECTOR wpos;
 
-	if (GameType != GAME_GATERACE && GameType != GAME_TRAILBLAZER || gTrailblazerConeModel == NULL || gTrailblazerData == NULL) 
+	if (GameType != GAME_GATERACE && GameType != GAME_TRAILBLAZER || 
+		gTrailblazerConeModel == NULL || gTrailblazerData == NULL) 
 		return;
 
-	i = 0;
 	SetFrustrumMatrix();
-	bVar1 = true;
 
-	if (gTrailblazerPrevConeDelay == 0) 
-		goto LAB_000439dc;
-
-	i = -1;
-	do {
-
-		while (true) 
+	if (gTrailblazerConeIndex < 100)
+	{
+		for (i = 0; i < MAX_SMASHED_CONES; i++)
 		{
-			bVar1 = i < 6;
-		LAB_000439dc:
-			if (!bVar1) 
-			{
-				DrawSmashedCones();
-				return;
-			}
-
 			cone = gTrailblazerConeIndex + i;
-			if (cone < 100) 
-				break;
-		LAB_000439d4:
-			i++;
+
+			if (gTrailblazerPrevConeDelay)
+				cone -= 1;
+
+			if (GameType == GAME_GATERACE) 
+			{
+				GetConePos(cone, &wpos, 0);
+				DrawCone(&wpos, cone);
+
+				GetConePos(cone, &wpos, 1);
+				DrawCone(&wpos, cone);
+			}
+			else
+			{
+				GetConePos(cone, &wpos, -1);
+				DrawCone(&wpos, cone);
+			}
 		}
+	}
 
-		if (GameType != GAME_GATERACE) 
-		{
-			GetConePos(cone, &wpos, -1);
-			DrawCone(&wpos, gTrailblazerConeIndex + i);
-			goto LAB_000439d4;
-		}
-
-		GetConePos(cone, &wpos, 0);
-		DrawCone(&wpos, gTrailblazerConeIndex + i);
-		GetConePos(gTrailblazerConeIndex + i, &wpos, 1);
-		DrawCone(&wpos, gTrailblazerConeIndex + i);
-
-		i++;
-	} while (true);
+	DrawSmashedCones();
 }
 
 
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ CarConeCollision(struct VECTOR *pPos /*$a0*/, int car /*$a1*/)
+// int /*$ra*/ CarConeCollision(VECTOR *pPos /*$a0*/, int car /*$a1*/)
  // line 545, offset 0x000439fc
 	/* begin block 1 */
 		// Start line: 546
 		// Start offset: 0x000439FC
 		// Variables:
-	// 		struct CDATA2D cd[2]; // stack offset -216
-	// 		struct _CAR_DATA *cp1; // $t0
+	// 		CDATA2D cd[2]; // stack offset -216
+	// 		CAR_DATA *cp1; // $t0
 	// 		int carLength[2]; // stack offset -16
 
 		/* begin block 1.1 */
@@ -530,29 +466,32 @@ void DrawDrivingGames(void)
 	/* end block 4 */
 	// End Line: 1277
 
-// [D]
+// [D] [T]
 int CarConeCollision(VECTOR *pPos, int car)
 {
 	int model;
 	CDATA2D cd[2];
-
+	CAR_DATA* cp1;
+	
 	cd[0].x.vx = pPos->vx;
 	cd[0].x.vz = pPos->vz;
-	cd[0].length[0] = 0x28;
-	cd[0].length[1] = 0x28;
+	cd[0].length[0] = 40;
+	cd[0].length[1] = 40;
 	cd[0].theta = pPos->pad;
 
-	if (car_data[car].controlType == CONTROL_TYPE_NONE) 
+	cp1 = &car_data[car];
+
+	if (cp1->controlType == CONTROL_TYPE_NONE) 
 		return 0;
 
-	model = car_data[car].ap.model;
+	model = cp1->ap.model;
 
-	cd[1].x.vx = car_data[car].hd.where.t[0];
+	cd[1].x.vx = cp1->hd.where.t[0];
 	cd[1].length[0] = car_cosmetics[model].colBox.vz;
 	cd[1].length[1] = car_cosmetics[model].colBox.vx;
 
-	cd[1].theta = car_data[car].hd.direction;
-	cd[1].x.vz = car_data[car].hd.where.t[2];
+	cd[1].theta = cp1->hd.direction;
+	cd[1].x.vz = cp1->hd.where.t[2];
 
 	return bcollided2d(cd, 1);
 }
@@ -561,13 +500,13 @@ int CarConeCollision(VECTOR *pPos, int car)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ SetSmashedCone(int cone /*$s1*/, struct VECTOR *velocity /*$a1*/, int player /*$s2*/, int side /*$a3*/)
+// void /*$ra*/ SetSmashedCone(int cone /*$s1*/, VECTOR *velocity /*$a1*/, int player /*$s2*/, int side /*$a3*/)
  // line 578, offset 0x00043ae8
 	/* begin block 1 */
 		// Start line: 579
 		// Start offset: 0x00043AE8
 		// Variables:
-	// 		struct SMASHED_CONE *sc; // $s0
+	// 		SMASHED_CONE *sc; // $s0
 	// 		int chan; // $s0
 	/* end block 1 */
 	// End offset: 0x00043CE0
@@ -588,25 +527,20 @@ int CarConeCollision(VECTOR *pPos, int car)
 	/* end block 4 */
 	// End Line: 1357
 
-// [D]
+// [D] [T]
 void SetSmashedCone(int cone, VECTOR *velocity, int player, int side)
 {
-	int iVar1;
-	long lVar2;
-	uint uVar3;
 	int chan;
-	TRAILBLAZER_DATA *pTVar4;
+	TRAILBLAZER_DATA *tbd;
 	SMASHED_CONE *sc;
 
 	sc = smashed_cones + current_smashed_cone;
 	current_smashed_cone++;
 
-	if (5 < current_smashed_cone)
+	if (current_smashed_cone > MAX_SMASHED_CONES-1)
 		current_smashed_cone = 0;
-
-	//*(uint *)sc = *(uint *)sc & 0xffff00ff | 0x100 | (side & 1U) << 0xf;
-
-	sc->rot_speed = 0x100;
+	
+	sc->rot_speed = 256;
 	sc->side = side;
 	sc->cone = cone;
 
@@ -615,23 +549,23 @@ void SetSmashedCone(int cone, VECTOR *velocity, int player, int side)
 
 	if (sc->velocity.vx < 0)
 		sc->velocity.vy = velocity->vx;
-	else
+	else 
 		sc->velocity.vy = -velocity->vx;
 
 	if (sc->velocity.vz < 0)
 		sc->velocity.vy += velocity->vz;
 	else
 		sc->velocity.vy -= velocity->vz;
-
-	sc->velocity.vy = sc->velocity.vy >> 1;
+	
+	sc->velocity.vy /= 2;
 
 	if ((rand() & 1) == 0)
 		sc->rot_speed = -sc->velocity.vy;
 	else
 		sc->rot_speed = sc->velocity.vy;
 
-	if (sc->velocity.vy < -100)
-		sc->velocity.vy = -100;
+	if (sc->velocity.vy < -67)
+		sc->velocity.vy = -67;
 
 	chan = GetFreeChannel();
 
@@ -640,8 +574,8 @@ void SetSmashedCone(int cone, VECTOR *velocity, int player, int side)
 		if (NumPlayers > 1 && NoPlayerControl == 0) 
 			SetPlayerOwnsChannel(chan, player);
 
-		pTVar4 = gTrailblazerData + cone;
-		Start3DSoundVolPitch(chan, 1, 5, pTVar4->x, pTVar4->y, pTVar4->z, -2000, 800);
+		tbd = &gTrailblazerData[cone];
+		Start3DSoundVolPitch(chan, 1, SOUND_BANK_MISSION, tbd->x, tbd->y, tbd->z, -2000, 800);
 	}
 }
 
@@ -685,39 +619,40 @@ void SetSmashedCone(int cone, VECTOR *velocity, int player, int side)
 // [D]
 void MoveSmashedCones(void)
 {
-	TRAILBLAZER_DATA *pTVar2;
-	SMASHED_CONE *pSVar3;
+	TRAILBLAZER_DATA *tbd;
+	SMASHED_CONE *sc;
 	int i;
 
 	if (gTrailblazerData == NULL)
 		return;
 
-	pSVar3 = smashed_cones;
-	i = 5;
-	do {
-		if (pSVar3->cone != -1) 
+	sc = smashed_cones;
+
+	for (i = 0;  i < MAX_SMASHED_CONES; i++)
+	{
+		if (sc->cone != -1) 
 		{
-			pTVar2 = gTrailblazerData + pSVar3->cone;
+			tbd = &gTrailblazerData[sc->cone];
 
-			if (pTVar2->y < 50 - player[0].pos[1])
+			if (tbd->y < 50 - player[0].pos[1])
 			{
-				pTVar2->x += pSVar3->velocity.vx;
-				pTVar2->y += pSVar3->velocity.vy;
-				pTVar2->z += pSVar3->velocity.vz;
+				tbd->x += sc->velocity.vx;
+				tbd->y += sc->velocity.vy;
+				tbd->z += sc->velocity.vz;
 
-				pSVar3->velocity.vy += 10;
-				pSVar3->active++;
+				sc->velocity.vy += 10;
+				sc->active++;
 
 			}
 			else
 			{
-				pSVar3->cone = -1;
-				pSVar3->active = 0;
+				sc->cone = -1;
+				sc->active = 0;
 			}
 		}
-		pSVar3++;
-		i--;
-	} while (-1 < i);
+		
+		sc++;
+	}
 }
 
 
@@ -730,8 +665,8 @@ void MoveSmashedCones(void)
 		// Start line: 664
 		// Start offset: 0x00044168
 		// Variables:
-	// 		struct SMASHED_CONE *sc; // $s0
-	// 		struct VECTOR wpos; // stack offset -40
+	// 		SMASHED_CONE *sc; // $s0
+	// 		VECTOR wpos; // stack offset -40
 	// 		int i; // $s1
 	/* end block 1 */
 	// End offset: 0x00044228
@@ -754,11 +689,9 @@ void MoveSmashedCones(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DrawSmashedCones(void)
 {
-	bool bVar1;
-	char cVar2;
 	SMASHED_CONE *sc;
 	int i;
 
@@ -767,8 +700,7 @@ void DrawSmashedCones(void)
 	if (gTrailblazerData == NULL)
 		return;
 
-	i = 0;
-	while (i < 6)
+	for (i = 0; i < MAX_SMASHED_CONES; i++)
 	{
 		sc = &smashed_cones[i];
 
@@ -785,8 +717,6 @@ void DrawSmashedCones(void)
 				DrawSmashedCone(sc, &wpos);
 			}
 		}
-
-		i++;
 	}
 }
 
@@ -794,14 +724,14 @@ void DrawSmashedCones(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawCone(struct VECTOR *position /*$s0*/, int cone /*$s1*/)
+// void /*$ra*/ DrawCone(VECTOR *position /*$s0*/, int cone /*$s1*/)
  // line 703, offset 0x00044034
 	/* begin block 1 */
 		// Start line: 704
 		// Start offset: 0x00044034
 		// Variables:
-	// 		struct MATRIX matrix; // stack offset -64
-	// 		struct VECTOR pos; // stack offset -32
+	// 		MATRIX matrix; // stack offset -64
+	// 		VECTOR pos; // stack offset -32
 
 		/* begin block 1.1 */
 			// Start line: 713
@@ -835,7 +765,7 @@ void DrawSmashedCones(void)
 	/* end block 4 */
 	// End Line: 1751
 
-// [D]
+// [D] [T]
 void DrawCone(VECTOR *position, int cone)
 {
 	MATRIX matrix;
@@ -844,45 +774,44 @@ void DrawCone(VECTOR *position, int cone)
 	if (gTrailblazerData == NULL)
 		return;
 
-	if (PositionVisible(position) != 0 && 
-		FrustrumCheck(position, gTrailblazerConeModel->bounding_sphere) != -1)
-	{
-		matrix.m[0][0] = 0x1000;
-		matrix.m[1][1] = 0x1000;
-		matrix.m[2][2] = 0x1000;
-		matrix.m[1][0] = 0;
-		matrix.m[2][0] = 0;
-		matrix.m[0][1] = 0;
-		matrix.m[2][1] = 0;
-		matrix.m[0][2] = 0;
-		matrix.m[1][2] = 0;
+	if (PositionVisible(position) == 0 || FrustrumCheck(position, gTrailblazerConeModel->bounding_sphere) == -1)
+		return;
 
-		_RotMatrixY(&matrix, gTrailblazerData[cone].rot);
+	matrix.m[0][0] = ONE;
+	matrix.m[1][1] = ONE;
+	matrix.m[2][2] = ONE;
+	matrix.m[1][0] = 0;
+	matrix.m[2][0] = 0;
+	matrix.m[0][1] = 0;
+	matrix.m[2][1] = 0;
+	matrix.m[0][2] = 0;
+	matrix.m[1][2] = 0;
 
-		pos.vx = position->vx - camera_position.vx;
-		pos.vy = position->vy - camera_position.vy;
-		pos.vz = position->vz - camera_position.vz;
+	_RotMatrixY(&matrix, gTrailblazerData[cone].rot);
 
-		gte_SetRotMatrix(&inv_camera_matrix);
+	pos.vx = position->vx - camera_position.vx;
+	pos.vy = position->vy - camera_position.vy;
+	pos.vz = position->vz - camera_position.vz;
 
-		_MatrixRotate(&pos);
-		RenderModel(gTrailblazerConeModel, &matrix, &pos, 0, 0, 0, 0);
-	}
+	gte_SetRotMatrix(&inv_camera_matrix);
+
+	_MatrixRotate(&pos);
+	RenderModel(gTrailblazerConeModel, &matrix, &pos, 0, 0, 0, 0);
 }
 
 
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawSmashedCone(struct SMASHED_CONE *sc /*$s0*/, struct VECTOR *wpos /*$s1*/)
+// void /*$ra*/ DrawSmashedCone(SMASHED_CONE *sc /*$s0*/, VECTOR *wpos /*$s1*/)
  // line 730, offset 0x00043dec
 	/* begin block 1 */
 		// Start line: 731
 		// Start offset: 0x00043DEC
 		// Variables:
-	// 		struct MATRIX object_matrix; // stack offset -64
-	// 		struct MATRIX *finalmatrix; // $s2
-	// 		struct VECTOR pos; // stack offset -32
+	// 		MATRIX object_matrix; // stack offset -64
+	// 		MATRIX *finalmatrix; // $s2
+	// 		VECTOR pos; // stack offset -32
 	/* end block 1 */
 	// End offset: 0x00043F34
 	// End Line: 750
@@ -892,7 +821,7 @@ void DrawCone(VECTOR *position, int cone)
 	/* end block 2 */
 	// End Line: 1683
 
-// [D]
+// [D] [T]
 void DrawSmashedCone(SMASHED_CONE *sc, VECTOR *wpos)
 {
 	MATRIX object_matrix;
@@ -904,9 +833,9 @@ void DrawSmashedCone(SMASHED_CONE *sc, VECTOR *wpos)
 	object_matrix.m[2][1] = 0;
 	object_matrix.m[0][2] = 0;
 	object_matrix.m[1][2] = 0;
-	object_matrix.m[0][0] = 0x1000;
-	object_matrix.m[1][1] = 0x1000;
-	object_matrix.m[2][2] = 0x1000;
+	object_matrix.m[0][0] = ONE;
+	object_matrix.m[1][1] = ONE;
+	object_matrix.m[2][2] = ONE;
 
 	RotMatrixY(sc->rot_speed * sc->active * 3 & 0xfff, &object_matrix);
 	RotMatrixZ(sc->rot_speed * sc->active & 0xfff, &object_matrix);
@@ -932,13 +861,13 @@ void DrawSmashedCone(SMASHED_CONE *sc, VECTOR *wpos)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ GetConePos(int cone /*$a0*/, struct VECTOR *pos /*$t2*/, int side /*$a2*/)
+// void /*$ra*/ GetConePos(int cone /*$a0*/, VECTOR *pos /*$t2*/, int side /*$a2*/)
  // line 757, offset 0x00043f34
 	/* begin block 1 */
 		// Start line: 758
 		// Start offset: 0x00043F34
 		// Variables:
-	// 		struct VECTOR offset; // stack offset -16
+	// 		VECTOR offset; // stack offset -16
 	// 		int x; // $t3
 	// 		int z; // $t4
 	// 		int r; // $v1
@@ -957,51 +886,44 @@ void DrawSmashedCone(SMASHED_CONE *sc, VECTOR *wpos)
 	/* end block 3 */
 	// End Line: 1745
 
-// [D]
+// [D] [T]
 void GetConePos(int cone, VECTOR *pos, int side)
 {
-	short sVar1;
-	TRAILBLAZER_DATA *pTVar2;
-	uint uVar3;
-	int iVar4;
-	int iVar5;
-	int iVar6;
+	TRAILBLAZER_DATA *tbd;
+	int x, z, r;
+	int radius;
+
+	tbd = &gTrailblazerData[cone];
 
 	if (side == -1)
 	{
-		pTVar2 = gTrailblazerData + cone;
-
-		pos->vx = pTVar2->x;
-		pos->vy = pTVar2->y;
-		pos->vz = pTVar2->z;
-		pos->pad = pTVar2->rot;	// [A] store cone rotation
+		pos->vx = tbd->x;
+		pos->vy = tbd->y;
+		pos->vz = tbd->z;
+		pos->pad = tbd->rot;	// [A] store cone rotation
 	}
 	else 
 	{
-		pTVar2 = gTrailblazerData + cone;
+		r = tbd->rot & 0xfff;
+		radius = cone * -4 + 600;
 
-		uVar3 = pTVar2->rot & 0xfff;
-		iVar4 = cone * -4 + 600;
-
-		iVar6 = iVar4 * rcossin_tbl[uVar3 * 2 + 1];
-
-		iVar4 = -iVar4 * rcossin_tbl[uVar3 * 2];
-		iVar4 = iVar4 >> 0xc;
+		x = radius * rcossin_tbl[r * 2 + 1];
+		z = -radius * rcossin_tbl[r * 2];
 
 		if (side == 0) 
 		{
-			pos->vx = pTVar2->x - FIXEDH(iVar6);
-			pos->vy = pTVar2->y;
-			iVar4 = -iVar4;
+			pos->vx = tbd->x - FIXED(x);
+			pos->vy = tbd->y;
+			pos->vz = tbd->z - FIXED(z);
 		}
 		else 
 		{
-			pos->vx = pTVar2->x + FIXEDH(iVar6);
-			pos->vy = pTVar2->y;
+			pos->vx = tbd->x + FIXED(x);
+			pos->vy = tbd->y;
+			pos->vz = tbd->z + FIXED(z);
 		}
 
-		pos->vz = pTVar2->z + iVar4;
-		pos->pad = pTVar2->rot;
+		pos->pad = tbd->rot;	// [A] store cone rotation
 	}
 }
 

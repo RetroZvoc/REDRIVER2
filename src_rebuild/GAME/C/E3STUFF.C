@@ -6,6 +6,7 @@
 #include "SYSTEM.H"
 #include "PRES.H"
 #include "PAUSE.H"
+#include "SOUND.H"
 
 #undef v0
 
@@ -80,11 +81,11 @@ void ShowHiresScreens(char **names, int delay, int wait)
 		// Start line: 172
 		// Start offset: 0x00044244
 		// Variables:
-	// 		struct DISPENV disp; // stack offset -488
-	// 		struct DRAWENV draw; // stack offset -464
-	// 		struct SPRT prims[6]; // stack offset -368
-	// 		struct POLY_FT3 nulls[6]; // stack offset -248
-	// 		struct RECT rect; // stack offset -56
+	// 		DISPENV disp; // stack offset -488
+	// 		DRAWENV draw; // stack offset -464
+	// 		SPRT prims[6]; // stack offset -368
+	// 		POLY_FT3 nulls[6]; // stack offset -248
+	// 		RECT rect; // stack offset -56
 	// 		unsigned long ot; // stack offset -48
 	// 		int i; // $t5
 	// 		int col; // $s1
@@ -171,7 +172,7 @@ void FadeInHiresScreen(char *filename)
 	DrawSync(0);
 	setRECT16(&rect, 640, 0, 320, 511);
 
-	LoadImage(&rect, (u_long*)&_overlay_buffer[512]);
+	LoadImage(&rect, (u_long*)&_overlay_buffer[524]);
 
 	DrawSync(0);
 	SetDispMask(1);
@@ -199,8 +200,6 @@ void FadeInHiresScreen(char *filename)
 				setRGB0(prim, 128, 128, 128);
 			}
 
-			// UNCERTAIN CODE
-			// LEARN TO DECOMPILE MIPS FIRST
 			addPrim(&ot, prim);
 			addPrim(&ot, poly);
 			poly++; prim++;
@@ -218,6 +217,158 @@ void FadeInHiresScreen(char *filename)
 	DrawSync(0);
 }
 
+#define GALLERY_IMAGES 24
+
+// [A] displays bonus gallery
+void ShowBonusGallery()
+{
+	char filename[64];
+	int currentImage;
+
+	DISPENV disp;
+	DRAWENV draw;
+	SPRT prims[6];
+	POLY_FT3 nulls[6];
+	RECT16 rect;
+	OTTYPE ot;
+
+	POLY_FT3 *poly;
+	SPRT *prim;
+	POLYCOORD *pc;
+
+	DrawSync(0);
+	VSync(0);
+	SetDispMask(0);
+	ResetGraph(3);
+
+	setRECT16(&rect, 0, 0, 512, 512);
+	ClearImage2(&rect, 0, 0, 0);
+	DrawSync(0);
+
+	setRECT16(&rect, 512, 0, 512, 512);
+	ClearImage2(&rect, 0, 0, 0);
+	DrawSync(0);
+
+	poly = nulls;
+	pc = polycoords;
+
+	prim = prims;
+
+	// prepare polygons
+	for(int i = 0; i < 6; i++)
+	{
+		// set primitive
+		setSprt(prim);
+		setUV0(prim, 0, 0);
+
+		setClut(prim, 640, 511);
+
+		setXY0(prim, pc->x, pc->y);
+		setWH(prim, pc->w, pc->h);
+
+		// set poly
+		setPolyFT3(poly);
+		setXY3(poly, -1,-1,-1,-1,-1,-1);
+
+		setTPage(poly, 1, 0, pc->u, pc->v);
+
+		prim++;
+		poly++;
+		pc++;
+	}
+
+	SetupDefDrawEnv(&draw, 0, 0, 640, 512);
+	SetupDefDispEnv(&disp, 0, 0, 640, 512);
+	VSync(0);
+	PutDispEnv(&disp);
+	PutDrawEnv(&draw);
+
+	currentImage = 0;
+
+	// draw image cycle
+	while(currentImage <= GALLERY_IMAGES)
+	{
+		if(currentImage == 0)
+			sprintf(filename, "GFX\\GAL\\INTRO.TIM");
+		else
+			sprintf(filename, "GFX\\GAL\\IMG%d.TIM", currentImage-1);
+		
+		LoadfileSeg(filename, _other_buffer, 20, 0x4ff80);
+		LoadClut((u_long*)_other_buffer, 640, 511);
+
+		DrawSync(0);
+		setRECT16(&rect, 640, 0, 320, 511);
+
+		LoadImage(&rect, (u_long*)&_other_buffer[524]);
+
+		DrawSync(0);
+		SetDispMask(1);
+
+		// now draw image
+		DrawSync(0);
+		VSync(0);
+
+		PutDispEnv(&disp);
+		PutDrawEnv(&draw);
+
+		ClearOTagR((u_long*)&ot, 1);
+
+		poly = nulls;
+		prim = prims;
+
+		for (int i = 0; i < 6; i++)
+		{
+			setRGB0(prim, 128, 128, 128);
+
+			addPrim(&ot, prim);
+			addPrim(&ot, poly);
+			poly++; prim++;
+		}
+
+		DrawOTag((u_long*)&ot);
+
+#ifndef PSX
+		Emulator_EndScene();
+#endif
+
+		// wait for user input
+		do {
+			ReadControllers();
+			VSync(-1);
+
+			if(Pads[0].dirnew & 0x8000)
+			{
+				currentImage--;
+				if (currentImage < 0)
+				{
+					FESound(1);
+					currentImage = 0;
+				}
+				else
+				{
+					FESound(3);
+					break;
+				}
+			}
+
+			if(Pads[0].dirnew & 0x2000)
+			{
+				FESound(3);
+				currentImage++;
+				break;
+			}
+
+			if(Pads[0].dirnew & 0x10)
+			{
+				FESound(0);
+				currentImage = GALLERY_IMAGES+1; // quit
+				break;
+			}
+		} while (true);
+	}
+
+	DrawSync(0);
+}
 
 
 // decompiled code
@@ -228,11 +379,11 @@ void FadeInHiresScreen(char *filename)
 		// Start line: 260
 		// Start offset: 0x000445F4
 		// Variables:
-	// 		struct DISPENV disp; // stack offset -496
-	// 		struct DRAWENV draw; // stack offset -472
-	// 		struct SPRT prims[6]; // stack offset -376
-	// 		struct POLY_FT3 nulls[6]; // stack offset -256
-	// 		struct RECT rect; // stack offset -64
+	// 		DISPENV disp; // stack offset -496
+	// 		DRAWENV draw; // stack offset -472
+	// 		SPRT prims[6]; // stack offset -376
+	// 		POLY_FT3 nulls[6]; // stack offset -256
+	// 		RECT rect; // stack offset -64
 	// 		unsigned long ot; // stack offset -56
 	// 		int i; // $t5
 	// 		int col; // $s1
@@ -360,7 +511,7 @@ void FadeOutHiresScreen(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ SetupDefDrawEnv(struct DRAWENV *env /*$a0*/, int x /*$a1*/, int y /*$a2*/, int w /*$a3*/, int h /*stack 16*/)
+// void /*$ra*/ SetupDefDrawEnv(DRAWENV *env /*$a0*/, int x /*$a1*/, int y /*$a2*/, int w /*$a3*/, int h /*stack 16*/)
  // line 325, offset 0x00044e40
 	/* begin block 1 */
 		// Start line: 650
@@ -380,7 +531,7 @@ void SetupDefDrawEnv(DRAWENV *env, int x, int y, int w, int h)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ SetupDefDispEnv(struct DISPENV *env /*$s0*/, int x /*$a1*/, int y /*$a2*/, int w /*$a3*/, int h /*stack 16*/)
+// void /*$ra*/ SetupDefDispEnv(DISPENV *env /*$s0*/, int x /*$a1*/, int y /*$a2*/, int w /*$a3*/, int h /*stack 16*/)
  // line 350, offset 0x00044da0
 	/* begin block 1 */
 		// Start line: 1213
@@ -395,8 +546,6 @@ void SetupDefDrawEnv(DRAWENV *env, int x, int y, int w, int h)
 // [D] [T]
 void SetupDefDispEnv(DISPENV *env, int x, int y, int w, int h)
 {
-	short framey;
-
 	if (h < 257) 
 	{
 		SetDefDispEnv(env, x, y, w, 256);
@@ -429,9 +578,9 @@ void SetupDefDispEnv(DISPENV *env, int x, int y, int w, int h)
 		// Start line: 392
 		// Start offset: 0x000448CC
 		// Variables:
-	// 		struct DISPENV disp; // stack offset -144
-	// 		struct DRAWENV draw; // stack offset -120
-	// 		struct RECT rect; // stack offset -24
+	// 		DISPENV disp; // stack offset -144
+	// 		DRAWENV draw; // stack offset -120
+	// 		RECT rect; // stack offset -24
 	// 		char *exe; // $a0
 	/* end block 1 */
 	// End offset: 0x00044A40
@@ -523,9 +672,9 @@ void SetPleaseWait(char *buffer)
 		// Start line: 444
 		// Start offset: 0x00044A40
 		// Variables:
-	// 		struct DISPENV disp; // stack offset -160
-	// 		struct DRAWENV draw; // stack offset -136
-	// 		struct RECT rect; // stack offset -40
+	// 		DISPENV disp; // stack offset -160
+	// 		DRAWENV draw; // stack offset -136
+	// 		RECT rect; // stack offset -40
 	// 		char *mess1; // $s6
 	// 		char *mess2; // $s3
 	// 		char *exe; // $s4

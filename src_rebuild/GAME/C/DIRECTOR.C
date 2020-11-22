@@ -15,6 +15,7 @@
 #include "SPOOL.H"
 #include "MODELS.H"
 #include "OBJCOLL.H"
+#include "OVERLAY.H"
 #include "PRES.H"
 #include "SOUND.H"
 #include "SYSTEM.H"
@@ -150,10 +151,10 @@ int CursorX = 0;
 int ClearCameras = 0;
 int DirectorMenuActive = 0;
 
+
 // [D] [T]
 void InitDirectorVariables(void)
 {
-	char* pcVar1;
 	int count;
 
 	PlayMode = 0;
@@ -237,7 +238,7 @@ void DeleteCurrentCamera(int CameraCnt)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ setCamera(struct PLAYBACKCAMERA *Change /*$a0*/)
+// void /*$ra*/ setCamera(PLAYBACKCAMERA *Change /*$a0*/)
  // line 493, offset 0x0003e89c
 	/* begin block 1 */
 		// Start line: 3304
@@ -393,7 +394,7 @@ void EditCamera(int CameraCnt)
 		// Start line: 575
 		// Start offset: 0x0003B548
 		// Variables:
-	// 		struct PLAYBACKCAMERA *TempChange; // $a1
+	// 		PLAYBACKCAMERA *TempChange; // $a1
 	/* end block 1 */
 	// End offset: 0x0003B794
 	// End Line: 632
@@ -483,7 +484,7 @@ void RecordCamera(int CameraCnt)
 	// 		int count; // $a3
 	// 		int nextframe; // $a2
 	// 		int found; // $t0
-	// 		struct PLAYBACKCAMERA *RestoreChange; // $t1
+	// 		PLAYBACKCAMERA *RestoreChange; // $t1
 	/* end block 1 */
 	// End offset: 0x0003E9B8
 	// End Line: 655
@@ -609,7 +610,7 @@ int CheckCameraChange(int CameraCnt)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ SetPlaybackCamera(struct PLAYBACKCAMERA *camera /*$a0*/)
+// void /*$ra*/ SetPlaybackCamera(PLAYBACKCAMERA *camera /*$a0*/)
  // line 710, offset 0x0003ec0c
 	/* begin block 1 */
 		// Start line: 5354
@@ -659,13 +660,13 @@ void SetPlaybackCamera(PLAYBACKCAMERA* camera)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ IsMovingCamera(struct PLAYBACKCAMERA *lastcam /*$t3*/, struct PLAYBACKCAMERA *nextcam /*$t0*/, int cameracnt /*$a2*/)
+// int /*$ra*/ IsMovingCamera(PLAYBACKCAMERA *lastcam /*$t3*/, PLAYBACKCAMERA *nextcam /*$t0*/, int cameracnt /*$a2*/)
  // line 731, offset 0x0003b8c8
 	/* begin block 1 */
 		// Start line: 732
 		// Start offset: 0x0003B8C8
 		// Variables:
-	// 		struct PLAYBACKCAMERA cam; // stack offset -56
+	// 		PLAYBACKCAMERA cam; // stack offset -56
 	// 		long xdist; // $t5
 	// 		long ydist; // $t6
 	// 		long zdist; // $t4
@@ -768,8 +769,8 @@ int IsMovingCamera(PLAYBACKCAMERA* lastcam, PLAYBACKCAMERA* nextcam, int camerac
 		// Start line: 795
 		// Start offset: 0x0003BBA8
 		// Variables:
-	// 		struct POLY_G4 *camera; // $a2
-	// 		struct LINE_F2 *bar; // $t2
+	// 		POLY_G4 *camera; // $a2
+	// 		LINE_F2 *bar; // $t2
 	// 		int x; // $a2
 	// 		int min_x; // $t1
 	// 		int max_x; // $t0
@@ -1028,7 +1029,7 @@ void CameraBar(int CameraCnt)
 
 // decompiled code
 // original method signature: 
-// struct PLAYBACKCAMERA * /*$ra*/ FindFreeCamera()
+// PLAYBACKCAMERA * /*$ra*/ FindFreeCamera()
  // line 929, offset 0x0003e9b8
 	/* begin block 1 */
 		// Start line: 931
@@ -1118,7 +1119,7 @@ void deleteCamera(int count)
 		// Start line: 953
 		// Start offset: 0x0003EA40
 		// Variables:
-	// 		struct PLAYBACKCAMERA nextcamera; // stack offset -48
+	// 		PLAYBACKCAMERA nextcamera; // stack offset -48
 	// 		int count; // $s0
 	/* end block 1 */
 	// End offset: 0x0003EAA4
@@ -1172,15 +1173,15 @@ void DeleteAllCameras(void)
 		// Start offset: 0x0003C1B0
 		// Variables:
 	// 		static int FlashCnt; // offset 0x0
-	// 		struct REPLAY_ICON *IconPtr; // $s0
-	// 		struct SPRT *icon; // $a2
+	// 		REPLAY_ICON *IconPtr; // $s0
+	// 		SPRT *icon; // $a2
 	// 		int count; // $s6
 
 		/* begin block 1.1 */
 			// Start line: 1027
 			// Start offset: 0x0003C340
 			// Variables:
-		// 		struct TEXTURE_DETAILS *Icon_texture; // $s1
+		// 		TEXTURE_DETAILS *Icon_texture; // $s1
 		// 		int min_x; // $v1
 		// 		int min_y; // $a0
 
@@ -1391,11 +1392,20 @@ void ShowIcons(unsigned char* menu, int selected, int x_offset)
 // [D] [T]
 void ShowReplayOptions(void)
 {
-	if (gInGameCutsceneActive == 0 && quick_replay == 0)
-	{
-		ShowReplayMenu();
-		CameraBar(CameraCnt);
-	}
+	if (gInGameCutsceneActive || quick_replay)
+		return;
+
+	// [A] handle sound here
+	if (DirectorMenuActive)	// not a FastForward
+		PauseSound();
+	else if(PlayMode != 2 && PlayMode != 3)
+		UnPauseSound();
+	
+	if (!gDoOverlays && !DirectorMenuActive)
+		return;
+
+	ShowReplayMenu();
+	CameraBar(CameraCnt);
 }
 
 
@@ -1454,22 +1464,18 @@ void ShowReplayOptions(void)
 // [D] [T]
 void ShowReplayMenu(void)
 {
-	unsigned char* menu;
 	int strobe;
 	int selected;
 
 	if (DirectorMenuActive < 1 && PlayMode != 2 && PlayMode != 3)
 	{
-		UnPauseSound();
 		ShowIcons(menu0, 0, 0);
 	}
 	else
 	{
-		PauseSound();
-
-		selected = CursorX;
-
-		if (DirectorMenuActive != 1)
+		if (DirectorMenuActive == 1)
+			selected = CursorX;
+		else
 			selected = 99;
 
 		ShowIcons(menu1, selected, 0);
@@ -1481,9 +1487,7 @@ void ShowReplayMenu(void)
 		{
 			if (DirectorMenuActive == 2)
 			{
-				menu = menu2;
-				selected = 0;
-				ShowIcons(menu, CursorY - 1, selected);
+				ShowIcons(menu2, CursorY - 1, 0);
 			}
 			else
 			{
@@ -1494,9 +1498,7 @@ void ShowReplayMenu(void)
 		{
 			if (DirectorMenuActive == 2)
 			{
-				menu = menu6;
-				selected = MenuOffset;
-				ShowIcons(menu, CursorY - 1, selected);
+				ShowIcons(menu6, CursorY - 1, MenuOffset);
 			}
 			else
 			{
@@ -1526,9 +1528,8 @@ void ShowReplayMenu(void)
 			strobe = 32 - strobe;
 
 		SetTextColour((strobe << 3), 0, 0);
-		PrintString("Auto direct", 100, 0x1e);
+		PrintString("Auto direct", 100, 30);
 	}
-	return;
 }
 
 
@@ -1571,7 +1572,7 @@ void ShowReplayMenu(void)
 				// Start line: 1327
 				// Start offset: 0x0003CC34
 				// Variables:
-			// 		struct ROUTE_DATA routeData; // stack offset -96
+			// 		ROUTE_DATA routeData; // stack offset -96
 			// 		int road_height; // $s1
 			/* end block 1.1.3 */
 			// End offset: 0x0003CCB0
@@ -1581,7 +1582,7 @@ void ShowReplayMenu(void)
 				// Start line: 1347
 				// Start offset: 0x0003CCBC
 				// Variables:
-			// 		struct VECTOR old_camera; // stack offset -88
+			// 		VECTOR old_camera; // stack offset -88
 			// 		int x; // $s5
 			// 		int z; // $s4
 			// 		int d; // $s3
@@ -1589,14 +1590,14 @@ void ShowReplayMenu(void)
 			// 		char cameraCar; // $a0
 			// 		int dx; // $s1
 			// 		int dz; // $s0
-			// 		struct VECTOR basePos; // stack offset -72
-			// 		struct VECTOR tmpPos; // stack offset -56
+			// 		VECTOR basePos; // stack offset -72
+			// 		VECTOR tmpPos; // stack offset -56
 
 				/* begin block 1.1.4.1 */
 					// Start line: 1372
 					// Start offset: 0x0003CD38
 					// Variables:
-				// 		struct _EVENT *event; // $a1
+				// 		EVENT *event; // $a1
 				/* end block 1.1.4.1 */
 				// End offset: 0x0003CD68
 				// End Line: 1376
@@ -1621,7 +1622,7 @@ void ShowReplayMenu(void)
 					// Start line: 1454
 					// Start offset: 0x0003CF74
 					// Variables:
-				// 		struct ROUTE_DATA routeData; // stack offset -40
+				// 		ROUTE_DATA routeData; // stack offset -40
 				// 		int road_height; // $s1
 				/* end block 1.1.4.4 */
 				// End offset: 0x0003D064
@@ -1722,27 +1723,27 @@ void ControlReplay(void)
 	}
 
 	// register pads
-	if ((padd & 0x8000) != 0 && debounce == 0)
+	if ((padd & 0x8000) && debounce == 0)
 	{
 		move = 2;
 		debounce = 1;
 	}
-	if ((padd & 0x2000) != 0 && debounce == 0)
+	if ((padd & 0x2000) && debounce == 0)
 	{
 		move = 1;
 		debounce = 1;
 	}
-	if ((padd & 0x1000) != 0 && debounce == 0)
+	if ((padd & 0x1000) && debounce == 0)
 	{
 		move = 3;
 		debounce = 1;
 	}
-	if ((padd & 0x4000) != 0 && debounce == 0)
+	if ((padd & 0x4000) && debounce == 0)
 	{
 		move = 4;
 		debounce = 1;
 	}
-	if ((padd & 0x40) != 0 && debounce == 0)
+	if ((padd & 0x40) && debounce == 0)
 	{
 		if (DirectorMenuActive == 0)
 			pauseflag = 1;
@@ -1855,11 +1856,11 @@ void ControlReplay(void)
 			}
 			else
 			{
-				_EVENT* ev;
+				EVENT* ev;
 				ev = events.track[-2 - cameraCar];
 				
-				basePos.vx = (ev->position).vx;
-				basePos.vz = (ev->position).vz;
+				basePos.vx = ev->position.vx;
+				basePos.vz = ev->position.vz;
 			}
 
 			dx = basePos.vx - player[0].cameraPos.vx;
@@ -1911,12 +1912,12 @@ void ControlReplay(void)
 			player[0].cameraPos.vx = (player[0].cameraPos.vx + FIXED(z * rcossin_tbl[(dir & 0xfff) * 2])) - FIXED(x * rcossin_tbl[(dir & 0xfff) * 2 + 1]);
 			player[0].cameraPos.vz = (player[0].cameraPos.vz - FIXED(z * rcossin_tbl[(dir & 0xfff) * 2 + 1])) - FIXED(x * rcossin_tbl[(dir & 0xfff) * 2]);
 
+			tmpPos.vx = player[0].cameraPos.vx;
+			tmpPos.vy = -player[0].cameraPos.vy;
+			tmpPos.vz = player[0].cameraPos.vz;
+
 			if ( dist(player[0].spoolXZ, &player[0].cameraPos) < 18433)
 			{
-				tmpPos.vx = player[0].cameraPos.vx;
-				tmpPos.vy = -player[0].cameraPos.vy;
-				tmpPos.vz = player[0].cameraPos.vz;
-
 				if (QuickBuildingCollisionCheck(&tmpPos, dir, 10, 10, 10) != 0)
 				{
 					player[0].cameraPos.vx = old_camera.vx;
@@ -1931,19 +1932,18 @@ void ControlReplay(void)
 			}
 			
 			if (padd & 4)
-				player[0].cameraPos.vy = player[0].cameraPos.vy - speed * 16;
+				player[0].cameraPos.vy -= speed * 16;
 
 			if (padd & 1)
-				player[0].cameraPos.vy = player[0].cameraPos.vy + speed * 16;	
+				player[0].cameraPos.vy += speed * 16;	
 
-			height = -MapHeight(&player[0].cameraPos);
+			height = -MapHeight(&tmpPos);
 			
 			if (player[0].cameraPos.vy > height - MIN_TRIPOD_CAMERA_HEIGHT)
 				player[0].cameraPos.vy = height - MIN_TRIPOD_CAMERA_HEIGHT;
 
 			if (player[0].cameraPos.vy < height - 1050)
 				player[0].cameraPos.vy = height - 1050;
-
 
 			ROADS_GetRouteData(player[0].cameraPos.vx, player[0].cameraPos.vz, &routeData);
 
@@ -2616,7 +2616,7 @@ void ControlReplay(void)
 		// Start line: 1992
 		// Start offset: 0x0003DE60
 		// Variables:
-	// 		struct VECTOR pos; // stack offset -40
+	// 		VECTOR pos; // stack offset -40
 
 		/* begin block 1.1 */
 			// Start line: 1998
@@ -2822,9 +2822,9 @@ void DoAutoDirect(void)
 			// Start line: 2123
 			// Start offset: 0x0003E3A0
 			// Variables:
-		// 		struct _EVENT *event; // $a0
-		// 		struct _CAR_DATA *car; // $a3
-		// 		struct XZPAIR pos; // stack offset -16
+		// 		EVENT *event; // $a0
+		// 		CAR_DATA *car; // $a3
+		// 		XZPAIR pos; // stack offset -16
 
 			/* begin block 1.1.1 */
 				// Start line: 2168
@@ -2858,10 +2858,10 @@ int SelectCameraCar(int current)
 {
 	int count;
 
-	_EVENT* event;
+	EVENT* event;
 	int dz;
 	int dx;
-	_CAR_DATA* car;
+	CAR_DATA* car;
 	XZPAIR pos;
 
 	if (current >= MAX_CARS)
@@ -2964,8 +2964,8 @@ int SelectCameraCar(int current)
 				// Start offset: 0x0003E5D0
 				// Variables:
 			// 		char numEventModels; // $a0
-			// 		struct _EVENT *event; // $v1
-			// 		struct XZPAIR pos; // stack offset -24
+			// 		EVENT *event; // $v1
+			// 		XZPAIR pos; // stack offset -24
 
 				/* begin block 1.1.1.1 */
 					// Start line: 2208
@@ -3010,6 +3010,10 @@ int InvalidCamera(int car_num)
 	int dz;
 	int numEventModels;
 
+	// [A] bug fix of invalid player camera
+	if (CameraCnt < 3)
+		return 0;
+	
 	// check if camera is not too far
 	if (cameraview != 2)
 	{
@@ -3052,7 +3056,7 @@ int InvalidCamera(int car_num)
 	// check events
 	if (car_num < -1)
 	{
-		_EVENT* event;
+		EVENT* event;
 		XZPAIR pos;
 
 		numEventModels = 0;
@@ -3194,7 +3198,7 @@ int FirstCamera(void)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ dist(struct VECTOR *pos1 /*$a0*/, struct VECTOR *pos2 /*$a1*/)
+// int /*$ra*/ dist(VECTOR *pos1 /*$a0*/, VECTOR *pos2 /*$a1*/)
  // line 2289, offset 0x0003eb9c
 	/* begin block 1 */
 		// Start line: 2290
@@ -3243,7 +3247,7 @@ int dist(VECTOR* pos1, VECTOR* pos2)
 		// Start line: 2304
 		// Start offset: 0x0003ECC4
 		// Variables:
-	// 		struct PLAYBACKCAMERA *next; // $a1
+	// 		PLAYBACKCAMERA *next; // $a1
 	// 		int count; // $a2
 	/* end block 1 */
 	// End offset: 0x0003ED7C
@@ -3274,7 +3278,7 @@ void SetCameraReturnedFromCutscene(int CameraCnt)
 	next = PlaybackCamera;
 
 	while (NextChange = next, count < MAX_REPLAY_CAMERAS && (NextChange = PlaybackCamera + count, CameraCnt < NextChange->FrameCnt ||
-		NextChange->next != -2 && (next = PlaybackCamera + NextChange->next, next->FrameCnt <= CameraCnt)))
+		NextChange->next != 254 && (next = PlaybackCamera + NextChange->next, next->FrameCnt <= CameraCnt)))
 	{
 		count++;
 	}

@@ -75,16 +75,6 @@ static short big_north[] =
 
 VECTOR player_position = { 0, 0, 0, 0 };
 
-char* palettedir[] = {
-	"CHICAGO",
-	"HAVANA",
-	"VEGAS",
-	"RIO",
-	"CHICAGO",
-	"HAVANA",
-	"VEGAS",
-	"RIO",
-};
 
 MATRIX map_matrix;
 
@@ -113,17 +103,19 @@ static unsigned short MapTPage = 0;
 
 static int gUseRotatedMap = 0;
 
+int gMapXOffset = 249;
+int gMapYOffset = 181;
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawTargetBlip(struct VECTOR *pos /*$t0*/, unsigned char r /*$s2*/, unsigned char g /*$s3*/, unsigned char b /*$s4*/, unsigned long flags /*stack 16*/)
+// void /*$ra*/ DrawTargetBlip(VECTOR *pos /*$t0*/, unsigned char r /*$s2*/, unsigned char g /*$s3*/, unsigned char b /*$s4*/, unsigned long flags /*stack 16*/)
  // line 685, offset 0x00016280
 	/* begin block 1 */
 		// Start line: 686
 		// Start offset: 0x00016280
 		// Variables:
-	// 		struct POLY_FT4 *poly; // $t0
-	// 		struct VECTOR vec; // stack offset -40
+	// 		POLY_FT4 *poly; // $t0
+	// 		VECTOR vec; // stack offset -40
 	// 		int ysize; // $a2
 	/* end block 1 */
 	// End offset: 0x00016558
@@ -136,66 +128,59 @@ static int gUseRotatedMap = 0;
 
 /* WARNING: Could not reconcile some variable overlaps */
 
-// [D]
+// [D] [T]
 void DrawTargetBlip(VECTOR *pos, unsigned char r, unsigned char g, unsigned char b, ulong flags)
 {
 	int ysize;
 	POLY_FT4 *poly;
 	VECTOR vec;
 
-	if ((flags & 0x20) == 0) 
-	{
-		if ((flags & 8) == 0)
-		{
-			if ((flags & 1) == 0)
-			{
-				WorldToFullscreenMap2(pos, &vec);
-			}
-			else 
-			{
-				WorldToOverheadMapPositions(pos, &vec, 1, 0, 0);
-				if (0x5e < vec.vx - 0xe9U)
-					return;
+	int map_minX, map_maxX;
+	int map_minY, map_maxY;
+	
+	map_minX = gMapXOffset;
+	map_maxX = gMapXOffset + MAP_SIZE_W;
+	map_minY = gMapYOffset;
+	map_maxY = gMapYOffset + MAP_SIZE_H;
 
-				if (vec.vz < 0xae) 
-					return;
-			
-				if (0xfa < vec.vz)
-					return;
-				
-			}
-		}
-		else {
-			vec.vx = pos->vx;
-			vec.vy = pos->vy;
-			vec.vz = pos->vz;
-			vec.pad = pos->pad;
-		}
-		if ((flags & 1) == 0) {
-			vec.vx = vec.vx + map_x_offset;
-			vec.vz = vec.vz + map_z_offset;
-		}
-	}
-	else 
+	if (flags & 0x20) 
 	{
 		WorldToMultiplayerMap(pos, &vec);
-		vec.vx += 240;
+
+		vec.vx += gMapXOffset;
 		vec.vz += 96;
 	}
-
-	if ((flags & 0x10) == 0) 
+	else if (flags & 0x8)
 	{
-		ysize = 4;
+		vec.vx = pos->vx;
+		vec.vz = pos->vz;
+	}
+	else if (flags & 0x1)
+	{
+		WorldToOverheadMapPositions(pos, &vec, 1, 0, 0);
 
-		if ((flags & 2) != 0) 
+		if (vec.vx <= map_minX || vec.vx >= map_maxX || vec.vz <= map_minY || vec.vz >= map_maxY)
 		{
-			ysize = 3;
+			return;
 		}
 	}
 	else 
 	{
-		ysize = OverlayFlashValue >> 1;
+		WorldToFullscreenMap2(pos, &vec);
 	}
+
+	if ((flags & 1) == 0) 
+	{
+		vec.vx += map_x_offset;
+		vec.vz += map_z_offset;
+	}
+
+	if (flags & 0x10) 
+		ysize = OverlayFlashValue / 2;
+	else if (flags & 0x2) 
+		ysize = 3;
+	else
+		ysize = 4;
 
 	poly = (POLY_FT4 *)current->primptr;
 
@@ -204,10 +189,13 @@ void DrawTargetBlip(VECTOR *pos, unsigned char r, unsigned char g, unsigned char
 
 	poly->x0 = vec.vx - ysize;
 	poly->y0 = vec.vz - ysize;
+
 	poly->x1 = vec.vx + ysize;
 	poly->y1 = vec.vz - ysize;
+
 	poly->x2 = vec.vx - ysize;
 	poly->y2 = vec.vz + ysize;
+
 	poly->x3 = vec.vx + ysize;
 	poly->y3 = vec.vz + ysize;
 
@@ -215,30 +203,27 @@ void DrawTargetBlip(VECTOR *pos, unsigned char r, unsigned char g, unsigned char
 	poly->g0 = g;
 	poly->b0 = b;
 	
-	poly->u0 = light_texture.coords.u0;
-	poly->v0 = light_texture.coords.v0;
-	poly->u1 = light_texture.coords.u1;
-	poly->v1 = light_texture.coords.v1;
-	poly->u2 = light_texture.coords.u2;
-	poly->v2 = light_texture.coords.v2;
-	poly->u3 = light_texture.coords.u3;
-	poly->v3 = light_texture.coords.v3;
+	*(ushort*)&poly->u0 = *(ushort*)&light_texture.coords.u0;
+	*(ushort*)&poly->u1 = *(ushort*)&light_texture.coords.u1;
+	*(ushort*)&poly->u2 = *(ushort*)&light_texture.coords.u2;
+	*(ushort*)&poly->u3 = *(ushort*)&light_texture.coords.u3;
 
-	if ((flags & 2) == 0)
-		poly->tpage = light_texture.tpageid | 0x20;
-	else
+	if (flags & 0x2)
 		poly->tpage = light_texture.tpageid | 0x40;
+	else
+		poly->tpage = light_texture.tpageid | 0x20;
 
 	poly->clut = light_texture.clutid;
 
-	if ((flags & 4) == 0)
+	if (flags & 0x4)
 	{
-		addPrim(current->ot, poly);
-		current->primptr += sizeof(POLY_FT4);
+		// fullscreen map mode
+		DrawPrim(poly);
 	}
 	else
 	{
-		DrawPrim(poly);
+		addPrim(current->ot, poly);
+		current->primptr += sizeof(POLY_FT4);
 	}
 }
 
@@ -246,16 +231,16 @@ void DrawTargetBlip(VECTOR *pos, unsigned char r, unsigned char g, unsigned char
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawTargetArrow(struct VECTOR *pos /*$a2*/, unsigned long flags /*$s3*/)
+// void /*$ra*/ DrawTargetArrow(VECTOR *pos /*$a2*/, unsigned long flags /*$s3*/)
  // line 815, offset 0x00016578
 	/* begin block 1 */
 		// Start line: 816
 		// Start offset: 0x00016578
 		// Variables:
-	// 		struct VECTOR vec; // stack offset -56
-	// 		struct VECTOR vec2; // stack offset -40
-	// 		struct POLY_FT3 *null; // $t1
-	// 		struct POLY_G3 *poly; // $s2
+	// 		VECTOR vec; // stack offset -56
+	// 		VECTOR vec2; // stack offset -40
+	// 		POLY_FT3 *null; // $t1
+	// 		POLY_G3 *poly; // $s2
 	// 		int dx; // $s1
 	// 		int dy; // $s0
 	/* end block 1 */
@@ -269,74 +254,65 @@ void DrawTargetBlip(VECTOR *pos, unsigned char r, unsigned char g, unsigned char
 
 /* WARNING: Could not reconcile some variable overlaps */
 
-// [D]
+// [D] [T]
 void DrawTargetArrow(VECTOR *pos, ulong flags)
 {
-	short sVar1;
-	short sVar2;
-	int y;
-	int x;
+	int dy;
+	int dx;
 	POLY_G3 *poly;
 	VECTOR vec;
 	VECTOR vec2;
 
-	if ((flags & 8) == 0) 
-	{
-		if ((flags & 1) == 0)
-		{
-			WorldToFullscreenMap2(pos, &vec);
-		}
-		else 
-		{
-			WorldToOverheadMapPositions(pos, &vec, 1, 0, 0);
-		}
-	}
-	else 
+	if (flags & 0x8) 
 	{
 		vec.vx = pos->vx;
-		vec.vy = pos->vy;
 		vec.vz = pos->vz;
-		vec.pad = pos->pad;
 	}
-
-	if ((flags & 1) == 0) 
+	else if (flags & 0x1)
 	{
-		vec.vx = vec.vx + map_x_offset;
-		vec.vz = vec.vz + map_z_offset;
-		vec2.vx = map_x_offset + 0xa0;
-		vec2.vz = map_z_offset + 0x80;
+		WorldToOverheadMapPositions(pos, &vec, 1, 0, 0);
 	}
 	else 
+	{
+		WorldToFullscreenMap2(pos, &vec);
+	}
+
+	if (flags & 0x1) 
 	{
 		WorldToOverheadMapPositions((VECTOR *)player, &vec2, 1, '\0', 0);
 	}
+	else 
+	{
+		vec.vx = vec.vx + map_x_offset;
+		vec.vz = vec.vz + map_z_offset;
 
-	x = vec2.vx - vec.vx;
-	y = vec2.vz - vec.vz;
+		vec2.vx = map_x_offset + 160;
+		vec2.vz = map_z_offset + 128;
+	}
+
+	// target arrow perpendicular
+	dx = (vec2.vx - vec.vx) / 8;
+	dy = (vec2.vz - vec.vz) / 8;
 
 	poly = (POLY_G3 *)current->primptr;
 
 	setPolyG3(poly);
 	setSemiTrans(poly, 1);
 
-	poly->r0 = 24;
-	poly->g0 = 24;
-	poly->b0 = 24;
-	poly->r1 = 24;
-	poly->g1 = 24;
-	poly->b1 = 24;
+	poly->r0 = poly->r1 = 24;
+	poly->g0 = poly->g1 = 24;
+	poly->b0 = poly->b1 = 24;
 
 	poly->r2 = 64;
 	poly->g2 = 64;
 	poly->b2 = 64;
 
-	sVar1 = (y >> 3);
-	sVar2 = (x >> 3);
+	poly->x0 = vec2.vx + dy;
+	poly->y0 = vec2.vz - dx;
+	
+	poly->x1 = vec2.vx - dy;
+	poly->y1 = vec2.vz + dx;
 
-	poly->x0 = vec2.vx + sVar1;
-	poly->y0 = vec2.vz - sVar2;
-	poly->x1 = vec2.vx - sVar1;
-	poly->y1 = vec2.vz + sVar2;
 	poly->x2 = vec.vx;
 	poly->y2 = vec.vz;
 
@@ -354,16 +330,18 @@ void DrawTargetArrow(VECTOR *pos, ulong flags)
 
 	null->tpage = 0x40;
 	
-	if ((flags & 4) == 0)
+	if (flags & 0x4)
 	{
-		addPrim(current->ot, poly);
-		addPrim(current->ot, null);
-		current->primptr += sizeof(POLY_G3) + sizeof(POLY_FT3);
+		// fullscreen map
+		DrawPrim(null);
+		DrawPrim(poly);
 	}
 	else
 	{
-		DrawPrim(null);
-		DrawPrim(poly);
+		addPrim(current->ot, poly);
+		addPrim(current->ot, null);
+
+		current->primptr += sizeof(POLY_G3) + sizeof(POLY_FT3);
 	}
 }
 
@@ -371,18 +349,18 @@ void DrawTargetArrow(VECTOR *pos, ulong flags)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawPlayerDot(struct VECTOR *pos /*$a1*/, short rot /*$s2*/, unsigned char r /*$s5*/, unsigned char g /*$s4*/, int b /*stack 16*/, unsigned long flags /*stack 20*/)
+// void /*$ra*/ DrawPlayerDot(VECTOR *pos /*$a1*/, short rot /*$s2*/, unsigned char r /*$s5*/, unsigned char g /*$s4*/, int b /*stack 16*/, unsigned long flags /*stack 20*/)
  // line 883, offset 0x00016814
 	/* begin block 1 */
 		// Start line: 884
 		// Start offset: 0x00016814
 		// Variables:
-	// 		struct MATRIX matrix; // stack offset -168
-	// 		struct VECTOR direction; // stack offset -136
-	// 		struct SVECTOR apos[3]; // stack offset -120
-	// 		struct VECTOR opos[3]; // stack offset -96
-	// 		struct POLY_F3 *poly; // $t0
-	// 		struct VECTOR vec; // stack offset -48
+	// 		MATRIX matrix; // stack offset -168
+	// 		VECTOR direction; // stack offset -136
+	// 		SVECTOR apos[3]; // stack offset -120
+	// 		VECTOR opos[3]; // stack offset -96
+	// 		POLY_F3 *poly; // $t0
+	// 		VECTOR vec; // stack offset -48
 	/* end block 1 */
 	// End offset: 0x00016AC4
 	// End Line: 946
@@ -397,74 +375,65 @@ void DrawTargetArrow(VECTOR *pos, ulong flags)
 	/* end block 3 */
 	// End Line: 1822
 
-// [D]
+// [D] [T]
 void DrawPlayerDot(VECTOR *pos, short rot, unsigned char r, unsigned char g, int b, ulong flags)
 {
-	int iVar2;
-	int iVar3;
+	int sn;
+	int cs;
 	POLY_F3 *poly;
-	VECTOR direction;
-	SVECTOR apos[3];
 	VECTOR opos[3];
 	VECTOR vec;
 
-	if ((flags & 0x20) == 0) 
+	if (flags & 0x20) 
 	{
-		if ((flags & 8) == 0) 
-		{
-			if ((flags & 1) == 0)
-			{
-				WorldToFullscreenMap2(pos, &vec);
-			}
-			else
-			{
-				WorldToOverheadMapPositions(pos, &vec, 1, 0, 0);
-				if (0x5e < vec.vx - 0xe9U)
-					return;
-
-				if (vec.vz < 0xae)
-					return;
-			
-				if (0xfa < vec.vz)
-					return;
-
-			}
-		}
-		else 
-		{
-			vec.vx = pos->vx;
-			vec.vy = pos->vy;
-			vec.vz = pos->vz;
-			vec.pad = pos->pad;
-		}
-
-		if ((flags & 1) == 0) 
-		{
-			vec.vx = vec.vx + map_x_offset;
-			vec.vz = vec.vz + map_z_offset;
-		}
+		WorldToMultiplayerMap(pos, &vec);
+	
+		vec.vx += gMapXOffset;
+		vec.vz += 96;
 	}
 	else 
 	{
-		WorldToMultiplayerMap(pos, &vec);
-		vec.vx += 240;
-		vec.vz += 96;
+		if (flags & 0x8) 
+		{
+			vec.vx = pos->vx;
+			vec.vz = pos->vz;
+		}
+		else if (flags & 0x1)
+		{
+			WorldToOverheadMapPositions(pos, &vec, 1, 0, 0);
+			
+			if (vec.vx - 233U > 94)
+				return;
+
+			if (vec.vz < 174 || vec.vz > 250)
+				return;
+		}
+		else
+		{
+			WorldToFullscreenMap2(pos, &vec);
+		}
 	}
 
-	iVar2 = rcossin_tbl[(rot & 0xfffU) * 2];
-	iVar3 = rcossin_tbl[(rot & 0xfffU) * 2 + 1];
+	if ((flags & 0x1) == 0) 
+	{
+		vec.vx += map_x_offset;
+		vec.vz += map_z_offset;
+	}
+
+	sn = rcossin_tbl[(rot & 0xfffU) * 2];
+	cs = rcossin_tbl[(rot & 0xfffU) * 2 + 1];
 
 	opos[2].vx = vec.vx;
 	opos[2].vz = vec.vz;
 
-	opos[0].vx = opos[2].vx + (iVar2 * -3 + 0x800 >> 0xc);
-	opos[0].vz = opos[2].vz + FIXEDH(iVar3 * -3);
+	opos[0].vx = vec.vx + FIXEDH(sn * -3);
+	opos[0].vz = vec.vz + FIXEDH(cs * -3);
 
-	opos[1].vx = opos[2].vx + FIXEDH(iVar2 * 3 + iVar3 * -2);
-	opos[1].vz = opos[2].vz + FIXEDH(iVar3 * 3 + iVar2 * 2);
+	opos[1].vx = vec.vx + FIXEDH(sn * 3 + cs * -2);
+	opos[1].vz = vec.vz + FIXEDH(cs * 3 + sn * 2);
 
-	opos[2].vx = opos[2].vx + FIXEDH(iVar3 * 2 + iVar2 * 3);
-	opos[2].vz = opos[2].vz + FIXEDH(iVar2 * -2 + iVar3 * 3);
+	opos[2].vx = vec.vx + FIXEDH(cs * 2 + sn * 3);
+	opos[2].vz = vec.vz + FIXEDH(sn * -2 + cs * 3);
 
 	poly = (POLY_F3 *)current->primptr;
 	setPolyF3(poly);
@@ -475,19 +444,21 @@ void DrawPlayerDot(VECTOR *pos, short rot, unsigned char r, unsigned char g, int
 
 	poly->x0 = opos[0].vx;
 	poly->y0 = opos[0].vz;
+	
 	poly->x1 = opos[1].vx;
 	poly->y1 = opos[1].vz;
+	
 	poly->x2 = opos[2].vx;
 	poly->y2 = opos[2].vz;
 
-	if ((flags & 4) == 0) 
+	if (flags & 0x4) 
 	{
-		addPrim(current->ot, poly);
-		current->primptr += sizeof(POLY_F3);
+		DrawPrim(poly);
 	}
 	else 
 	{
-		DrawPrim(poly);
+		addPrim(current->ot, poly);
+		current->primptr += sizeof(POLY_F3);
 	}
 }
 
@@ -501,7 +472,7 @@ void DrawPlayerDot(VECTOR *pos, short rot, unsigned char r, unsigned char g, int
 		// Start line: 955
 		// Start offset: 0x00016AE8
 		// Variables:
-	// 		struct TEXTURE_DETAILS info; // stack offset -32
+	// 		TEXTURE_DETAILS info; // stack offset -32
 	// 		int i; // $a1
 	// 		int x; // $v0
 	// 		int y; // $a0
@@ -514,7 +485,7 @@ void DrawPlayerDot(VECTOR *pos, short rot, unsigned char r, unsigned char g, int
 	/* end block 2 */
 	// End Line: 1983
 
-// [D]
+// [D] [T]
 void ProcessOverlayLump(char *lump_ptr, int lump_size)
 {
 	int i;
@@ -525,15 +496,15 @@ void ProcessOverlayLump(char *lump_ptr, int lump_size)
 	MapTPage = info.tpageid;
 	MapClut = GetClut(mapclutpos.x, mapclutpos.y);
 
-	MapRect.w = 0x40;
-	MapRect.h = 0x100;
-	MapRect.x = (MapTPage & 0xf) << 6;
-	MapRect.y = (MapTPage & 0x10) << 4;
+	MapRect.w = 64;
+	MapRect.h = 256;
+	MapRect.x = (MapTPage & 15) << 6;
+	MapRect.y = (MapTPage & 16) << 4;
 
 	i = 0;
 	do {
-		MapSegmentPos[i].x = (((i & 3) * 32 + info.coords.u0) >> 2);
-		MapSegmentPos[i].y = info.coords.v0 + (i >> 2) * 32;
+		MapSegmentPos[i].x = ((i & 3) * 32 + info.coords.u0) / 4;
+		MapSegmentPos[i].y = info.coords.v0 + (i / 4) * 32;
 
 		i++;
 	} while (i < 16);
@@ -545,7 +516,8 @@ void ProcessOverlayLump(char *lump_ptr, int lump_size)
 
 	MALLOC_END();
 
-	LoadImage(&mapclutpos, (u_long *)(MapBitMaps + 0x200));
+	// load CLUT
+	LoadImage(&mapclutpos, (u_long *)(MapBitMaps + 512));
 	DrawSync(0);
 }
 
@@ -553,13 +525,13 @@ void ProcessOverlayLump(char *lump_ptr, int lump_size)
 
 // decompiled code
 // original method signature: 
-// unsigned long /*$ra*/ Long2DDistance(struct VECTOR *pPoint1 /*$a0*/, struct VECTOR *pPoint2 /*$a2*/)
+// unsigned long /*$ra*/ Long2DDistance(VECTOR *pPoint1 /*$a0*/, VECTOR *pPoint2 /*$a2*/)
  // line 994, offset 0x00016c0c
 	/* begin block 1 */
 		// Start line: 995
 		// Start offset: 0x00016C0C
 		// Variables:
-	// 		struct VECTOR delta; // stack offset -24
+	// 		VECTOR delta; // stack offset -24
 	// 		unsigned int result; // $v0
 
 		/* begin block 1.1 */
@@ -603,45 +575,36 @@ void ProcessOverlayLump(char *lump_ptr, int lump_size)
 	/* end block 3 */
 	// End Line: 2100
 
-// [D]
+// [D] [T]
 ulong Long2DDistance(VECTOR *pPoint1, VECTOR *pPoint2)
 {
-	short sVar1;
-	int iVar2;
-	uint uVar3;
-	long y;
-	int x;
-	ulong uVar4;
+	int tempTheta;
+	int theta;
+	ulong result;
+	VECTOR delta;
 
-	x = pPoint1->vx - pPoint2->vx;
+	delta.vx = ABS(pPoint1->vx - pPoint2->vx);
+	delta.vz = ABS(pPoint1->vz - pPoint2->vz);
 
-	if (x < 0)
-		x = pPoint2->vx - pPoint1->vx;
+	theta = ratan2(delta.vz, delta.vx);
 
-	y = pPoint1->vz - pPoint2->vz;
-
-	if (y < 0) 
-		y = pPoint2->vz - pPoint1->vz;
-
-	uVar3 = ratan2(y, x);
-	if ((uVar3 & 0x7ff) - 0x200 < 0x401)
+	if ((theta & 0x7ff) - 512U <= 1024)
 	{
-		sVar1 = rcossin_tbl[(uVar3 & 0xfff) * 2];
-		x = y;
+		tempTheta = rcossin_tbl[(theta & 0xfff) * 2];
+		result = delta.vz;
 	}
 	else 
 	{
-		sVar1 = rcossin_tbl[(uVar3 & 0xfff) * 2 + 1];
+		tempTheta = rcossin_tbl[(theta & 0xfff) * 2 + 1];
+		result = delta.vx;
 	}
 
-	iVar2 = sVar1;
-
-	if (x < 0x80000) 
-		uVar4 = (x << 0xc) / iVar2;
+	if (result < 0x80000) 
+		result = (result << 12) / tempTheta;
 	else 
-		uVar4 = (x << 9) / iVar2 << 3;
+		result = (result << 9) / tempTheta << 3;
 
-	return uVar4;
+	return result;
 }
 
 
@@ -678,42 +641,37 @@ ulong Long2DDistance(VECTOR *pPoint1, VECTOR *pPoint2)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void InitOverheadMap(void)
 {
 	int d;
 	int c;
 	int tpage;
 
-	if (gMultiplayerLevels == 0) 
-	{
-		SetMapPos();
-		tilehnum = overlaidmaps[GameLevel].width / 32;
-
-		c = 0;
-		tpage = 0;
-		do {
-			d = 0;
-
-			do {
-				maptile[d][c] = tpage;
-
-				LoadMapTile(tpage, (x_map >> 5) + d, (y_map >> 5) + c);
-
-				d++;
-				tpage++;
-			} while (d < 4);
-
-			c++;
-		} while (c < 4);
-
-		old_x_mod = x_map & 0x1f;
-		old_y_mod = y_map & 0x1f;
-	}
-	else 
+	if (gMultiplayerLevels) 
 	{
 		InitMultiplayerMap();
+		return;
 	}
+
+	SetMapPos();
+	tilehnum = overlaidmaps[GameLevel].width / 32;
+
+	tpage = 0;
+	
+	for (c = 0; c < 4; c++) 
+	{
+		for (d = 0; d < 4; d++)
+		{
+			maptile[d][c] = tpage;
+
+			LoadMapTile(tpage, (x_map >> 5) + d, (y_map >> 5) + c);
+			tpage++;
+		}
+	}
+
+	old_x_mod = x_map & 0x1f;
+	old_y_mod = y_map & 0x1f;
 }
 
 
@@ -736,15 +694,15 @@ void InitOverheadMap(void)
 	// 		int MeshWidth; // $s6
 	// 		int MeshHeight; // $s7
 	// 		long flag; // stack offset -104
-	// 		struct SVECTOR MapMesh[5][5]; // stack offset -784
-	// 		struct VECTOR MapMeshO[5][5]; // stack offset -584
-	// 		struct MAPTEX MapTex[4]; // stack offset -184
-	// 		struct SVECTOR direction; // stack offset -152
-	// 		struct POLY_FT4 *spt; // $a3
-	// 		struct POLY_F4 *sptb; // $a0
-	// 		struct DR_AREA *draw_area; // $s2
-	// 		struct RECT clipped_size; // stack offset -144
-	// 		struct VECTOR translate; // stack offset -136
+	// 		SVECTOR MapMesh[5][5]; // stack offset -784
+	// 		VECTOR MapMeshO[5][5]; // stack offset -584
+	// 		MAPTEX MapTex[4]; // stack offset -184
+	// 		SVECTOR direction; // stack offset -152
+	// 		POLY_FT4 *spt; // $a3
+	// 		POLY_F4 *sptb; // $a0
+	// 		DR_AREA *draw_area; // $s2
+	// 		RECT clipped_size; // stack offset -144
+	// 		VECTOR translate; // stack offset -136
 
 		/* begin block 1.1 */
 			// Start line: 1112
@@ -773,8 +731,8 @@ void InitOverheadMap(void)
 				// Start line: 1139
 				// Start offset: 0x00016FA8
 				// Variables:
-			// 		struct VECTOR vec; // stack offset -120
-			// 		struct TILE_1 *tile1; // $a0
+			// 		VECTOR vec; // stack offset -120
+			// 		TILE_1 *tile1; // $a0
 			/* end block 1.3.1 */
 			// End offset: 0x000170F4
 			// End Line: 1142
@@ -786,7 +744,7 @@ void InitOverheadMap(void)
 			// Start line: 1146
 			// Start offset: 0x000170F4
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 		/* end block 1.4 */
 		// End offset: 0x00017218
 		// End Line: 1161
@@ -845,46 +803,18 @@ void InitOverheadMap(void)
 /* WARNING: Could not reconcile some variable overlaps */
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D] [A] partially decompiled due to complexity
+// [D] [T]
 void DrawOverheadMap(void)
 {
-	unsigned char bVar1;
-	short sVar2;
-	short sVar3;
-	short uVar7;
-	short uVar8;
-	unsigned char uVar10;
-	short *psVar11;
+	u_char tmp;
+	short *playerFelony;
 	TILE_1 *tile1;
-	POLY_F4 *polyf4;
-	int x;
-	short *psVar12;
-	int y;
-	int y_00;
-	short *psVar13;
-	short *puVar14;
-	POLY_FT4 *local_a3_2816;
+	POLY_F4 *sptb;
+	POLY_FT4 *spt;
 	POLY_FT3 *null;
-	SVECTOR *pSVar15;
-	long *plVar16;
-	SVECTOR *pSVar17;
-	long *plVar18;
-	SVECTOR *pSVar19;
-	char cVar20;
-	SVECTOR *pSVar21;
-	char cVar22;
-	SVECTOR *v0;
-	_CAR_DATA *cp;
-	char *pcVar24;
-	char *pbVar25;
-	VECTOR *v1;
+	CAR_DATA *cp;
 	DR_AREA *drarea;
-	int r;
-	int *puVar26;
-	int iVar27;
-	int uVar28;
-	int iVar29;
-	int uVar30;
+	int intens;
 	SVECTOR MapMesh[5][5];
 	VECTOR MapMeshO[5][5];
 	MAPTEX MapTex[4];
@@ -892,84 +822,92 @@ void DrawOverheadMap(void)
 	RECT16 clipped_size;
 	VECTOR vec;
 	long flag;
+	int i, j;
+	int width; 
+	int height;
+	int x_mod;
+	int y_mod;
+	int MeshWidth;
+	int MeshHeight;
+	int map_minX, map_maxX;
+	int map_minY, map_maxY;
 
 	static int flashtimer = 0;
-	static int ptab[] = {
-		 0xFF, 0xF0, 0xAA, 0x78,
-		 0x50, 0x37, 0x26, 0x17,
-		 0xD,  0xA,  0x0,  0x0,
-		 0x0,  0x0,  0x0,  0x0,
+	static u_char ptab[] = {
+		255, 240, 170, 120,
+		80, 55, 38, 23,
+		13,  10,  0,  0,
+		0,  0,  0,  0,
 	};
 
-	static int ptab2[] = {
-		0xFF, 0xFF, 0xF0, 0xAA,
-		0x78, 0x50, 0x37, 0x26,
-		0x17, 0xD,  0xA,  0x0, 
-		0x0
+	static u_char ptab2[] = {
+		255, 255, 240, 170,
+		120, 80, 55, 38,
+		23, 13,  10,  0, 
+		0
 	};
 
-	VECTOR translate = { 280, 0, 212 };
+	map_minX = gMapXOffset;
+	map_maxX = gMapXOffset + MAP_SIZE_W;
+	map_minY = gMapYOffset;
+	map_maxY = gMapYOffset + MAP_SIZE_H;
 
-	if (gMultiplayerLevels != 0)
+	VECTOR translate = {
+		map_minX + MAP_SIZE_W/2,
+		0,
+		map_minY + MAP_SIZE_H/2
+	};
+
+	if (gMultiplayerLevels)
 	{
 		DrawMultiplayerMap();
 		return;
 	}
-	if (1 < NumPlayers)
+
+	if (NumPlayers > 1)
 		return;
 
-	SetMapPos();
-	uVar28 = x_map & 0x1f;
-	uVar30 = y_map & 0x1f;
-	draw_box();
+	SetMapPos();	
+	draw_box(map_minY, MAP_SIZE_H);
 
-	if (0 < player_position_known) 
+	// flash the overhead map
+	if (player_position_known > 0) 
 	{
 		if (player[0].playerCarId < 0)
-			psVar11 = &pedestrianFelony;
+			playerFelony = &pedestrianFelony;
 		else 
-			psVar11 = &car_data[player[0].playerCarId].felonyRating;
+			playerFelony = &car_data[player[0].playerCarId].felonyRating;
 
-		if (*psVar11 > FELONY_MIN_VALUE)
-		{
+		if (*playerFelony > FELONY_MIN_VALUE)
 			FlashOverheadMap(ptab[CameraCnt & 0xf], 0, ptab[CameraCnt + 8U & 0xf]);
-			goto LAB_00016fac;
-		}
-	}
-
-	if (player_position_known == -1)
-	{
-		if (flashtimer == 0)
-		{
-			if (player[0].playerCarId < 0) 
-				psVar11 = &pedestrianFelony;
-			else
-				psVar11 = &car_data[player[0].playerCarId].felonyRating;
-
-			if (*psVar11 > FELONY_MIN_VALUE)
-				flashtimer = 48;
-
-			goto LAB_00016ee8;
-		}
 	}
 	else 
 	{
-	LAB_00016ee8:
-		if (flashtimer == 0) 
-			goto LAB_00016fac;
+		if (player_position_known == -1)
+		{
+			if (flashtimer == 0)
+			{
+				if (player[0].playerCarId < 0) 
+					playerFelony = &pedestrianFelony;
+				else
+					playerFelony = &car_data[player[0].playerCarId].felonyRating;
+
+				if (*playerFelony > FELONY_MIN_VALUE)
+					flashtimer = 48;
+			}
+		}
+		
+		if (flashtimer)
+		{
+			flashtimer--;
+			intens = -flashtimer;
+
+			intens = ptab2[intens + 47 >> 2] + ptab2[intens + 48 >> 2] + ptab2[intens + 49 >> 2] + ptab2[intens + 50 >> 2] >> 2;
+			FlashOverheadMap(intens, intens, intens);
+		}
 	}
 
-
-	flashtimer--;
-	r = -flashtimer;
-
-	r = ptab2[r + 47 >> 2] + ptab2[r + 48 >> 2] + ptab2[r + 49 >> 2] + ptab2[r + 50 >> 2];
-	r = r >> 2;
-
-	FlashOverheadMap(r, r, r);
-
-LAB_00016fac:
-
+	// for restoring
 	drarea = (DR_AREA *)current->primptr;
 	SetDrawArea(drarea, &current->draw.clip);
 
@@ -978,14 +916,15 @@ LAB_00016fac:
 
 	WorldToOverheadMapPositions((VECTOR *)player->pos, &vec, 1, 0, 0);
 
-	if (((vec.vx - 0xe9U < 0x5f) && (0xad < vec.vz)) && (vec.vz < 0xfb)) 
+	// draw map center
+	if (vec.vx > map_minX && vec.vx < map_maxX && vec.vz > map_minY && vec.vz < map_maxY) 
 	{
 		tile1 = (TILE_1 *)current->primptr;
 		setTile1(tile1);
 
-		tile1->r0 = -1;
-		tile1->g0 = -1;
-		tile1->b0 = -1;
+		tile1->r0 = 255;
+		tile1->g0 = 255;
+		tile1->b0 = 255;
 
 		tile1->x0 = vec.vx;
 		tile1->y0 = vec.vz;
@@ -994,173 +933,129 @@ LAB_00016fac:
 		current->primptr += sizeof(TILE_1);
 	}
 
-	DrawTargetBlip((VECTOR *)player, 64, 64, 64, 3);
+	DrawTargetBlip((VECTOR *)player->pos, 64, 64, 64, 3);
+	
 	DrawCompass();
+
 	DrawOverheadTargets();
 
-	sVar3 = -uVar30;
-
+	// draw cop sight
 	cp = car_data;
 	do {
-		if (cp->controlType == CONTROL_TYPE_PURSUER_AI && cp->ai.p.dying == 0 || (cp->controlFlags & 1) != 0)
+		if (cp->controlType == CONTROL_TYPE_PURSUER_AI && cp->ai.p.dying == 0 || (cp->controlFlags & CONTROL_FLAG_COP))
 			DrawSightCone(&copSightData, (VECTOR *)cp->hd.where.t, cp->hd.direction);
 
 		cp++;
 	} while (cp <= &car_data[MAX_CARS]);
 
-	sVar2 = -uVar28;
+	x_mod = x_map & 31;
+	y_mod = y_map & 31;
+
+	// next code loads map tiles depending on player position changes
 	
 	// X axis
-	if ((uVar28 < 16) && (old_x_mod > 16))
+	if (x_mod < 16 && old_x_mod > 16)
 	{
 		// left
-		r = 0;
+		for (i = 0; i < 4; i++)
+		{
+			tmp = maptile[0][i];
 
-		do {
-			bVar1 = maptile[0][r];
+			maptile[0][i] = maptile[1][i];
+			maptile[1][i] = maptile[2][i];
+			maptile[2][i] = maptile[3][i];
+			maptile[3][i] = tmp;
 
-			maptile[0][r] = maptile[1][r];
-			maptile[1][r] = maptile[2][r]; 
-			maptile[2][r] = maptile[3][r];
-			maptile[3][r] = bVar1;
-
-			LoadMapTile(bVar1, x_map / 32 + 3, y_map / 32 + r);
-
-			r++;
-		} while (r < 4);
+			LoadMapTile(tmp, (x_map >> 5) + 3, (y_map >> 5) + i);
+		}
 	}
 
-	if ((uVar28 > 16) && (old_x_mod < 16)) 
+	if (x_mod > 16 && old_x_mod < 16) 
 	{
 		// right
-		r = 0;
+		for (i = 0; i < 4; i++)
+		{
+			tmp = maptile[3][i];
 
-		do {
-			bVar1 = maptile[3][r];
+			maptile[3][i] = maptile[2][i];
+			maptile[2][i] = maptile[1][i];
+			maptile[1][i] = maptile[0][i];
+			maptile[0][i] = tmp;
 
-			maptile[3][r] = maptile[2][r];
-			maptile[2][r] = maptile[1][r];
-			maptile[1][r] = maptile[0][r];
-			maptile[0][r] = bVar1;
-
-			LoadMapTile(bVar1, x_map / 32, y_map / 32 + r);
-			r++;
-		} while (r < 4);
+			LoadMapTile(tmp, (x_map >> 5), (y_map >> 5) + i);
+		}
 	}
 
 	// Z axis
-	if ((uVar30 < 16) && (old_y_mod > 16))
+	if (y_mod < 16 && old_y_mod > 16)
 	{
 		// down
-		r = 0;
-		do {
-			bVar1 = maptile[r][0];
+		for (i = 0; i < 4; i++)
+		{
+			tmp = maptile[i][0];
 
-			maptile[r][0] = maptile[r][1];
-			maptile[r][1] = maptile[r][2];
-			maptile[r][2] = maptile[r][3];
-			maptile[r][3] = bVar1;
+			maptile[i][0] = maptile[i][1];
+			maptile[i][1] = maptile[i][2];
+			maptile[i][2] = maptile[i][3];
+			maptile[i][3] = tmp;
 
-			LoadMapTile(bVar1, x_map / 32 + r, y_map / 32 + 3);
-			r++;
-		} while (r < 4);
+			LoadMapTile(tmp, (x_map >> 5) + i, (y_map >> 5) + 3);
+		}
 	}
 
-	if ((uVar30 > 16) && (old_y_mod < 16))
+	if (y_mod > 16 && old_y_mod < 16)
 	{
 		// up
-		r = 0;
-		do {
-			bVar1 = maptile[r][3];
+		for (i = 0; i < 4; i++)
+		{
+			tmp = maptile[i][3];
 
-			maptile[r][3] = maptile[r][2];
-			maptile[r][2] = maptile[r][1];
-			maptile[r][1] = maptile[r][0];
-			maptile[r][0] = bVar1;
+			maptile[i][3] = maptile[i][2];
+			maptile[i][2] = maptile[i][1];
+			maptile[i][1] = maptile[i][0];
+			maptile[i][0] = tmp;
 
-			LoadMapTile(bVar1, x_map / 32 + r, y_map / 32);
-			r++;
-		} while (r < 4);
+			LoadMapTile(tmp, (x_map >> 5) + i, (y_map >> 5));
+		}
 	}
 	
-	old_x_mod = uVar28;
-	old_y_mod = uVar30;
-
-	r = 3;
-	if (uVar28 != 0)
-		r = 4;
-
-	x = 3;
-
-	if (uVar30 != 0)
-		x = 4;
-
-	y_00 = 0;
+	old_x_mod = x_mod;
+	old_y_mod = y_mod;
 
 	// make grid coordinates
-	do {
+	for (i = 0; i < 5; i++)
+	{
 
-		MapMesh[0][y_00].vx = -35;
-		MapMesh[y_00][0].vz = -35;
+		MapMesh[0][i].vx = -35;
+		MapMesh[i][0].vz = -35;
 
-		MapMesh[1][y_00].vx = sVar2 - 16;
-		MapMesh[y_00][1].vz = sVar3 - 16;
+		MapMesh[1][i].vx = -x_mod - 16;
+		MapMesh[i][1].vz = -y_mod - 16;
 
-		MapMesh[2][y_00].vx = sVar2 + 16;
-		MapMesh[y_00][2].vz = sVar3 + 16;
+		MapMesh[2][i].vx = -x_mod + 16;
+		MapMesh[i][2].vz = -y_mod + 16;
 
-		MapMesh[3][y_00].vx = sVar2 + 48;
-		MapMesh[y_00][3].vz = sVar3 + 48;
+		MapMesh[3][i].vx = -x_mod + 48;
+		MapMesh[i][3].vz = -y_mod + 48;
 
-		MapMesh[4][y_00].vx = 35;
-		MapMesh[y_00][4].vz = 35;
+		MapMesh[4][i].vx = 35;
+		MapMesh[i][4].vz = 35;
+	}
 
-		y_00++;
-	} while (y_00 < 5);
+	MapTex[1].w = MapTex[2].w = tile_size;
+	MapTex[1].u = MapTex[2].u = MapTex[3].u = 0;
 
-	MapTex[0].u = MapMesh[0][0].vx - MapMesh[1][0].vx;
+	MapTex[1].h = MapTex[2].h = tile_size;
+	MapTex[1].v = MapTex[2].v = MapTex[3].v = 0;
+	
+	MapTex[0].u = 32 - ABS(MapMesh[0][0].vx - MapMesh[1][0].vx);
+	MapTex[0].w = ABS(MapMesh[0][0].vx - MapMesh[1][0].vx);
 
-	if (MapMesh[0][0].vx - MapMesh[1][0].vx < 0) 
-		MapTex[0].u = MapMesh[1][0].vx - MapMesh[0][0].vx;
-
-	MapTex[0].u = 32 - MapTex[0].u;
-	MapTex[0].w = MapMesh[0][0].vx - MapMesh[1][0].vx;
-
-	if (MapMesh[0][0].vx - MapMesh[1][0].vx < 0)
-		MapTex[0].w = MapMesh[1][0].vx - MapMesh[0][0].vx;
-
-	MapTex[1].w = tile_size;
-	MapTex[1].u = 0;
-	MapTex[2].u = 0;
-	MapTex[3].u = 0;
-	MapTex[2].w = tile_size;
-
-	if (MapMesh[3][0].vx - MapMesh[4][0].vx < 0)
-		MapTex[3].w = MapMesh[4][0].vx - MapMesh[3][0].vx;
-	else
-		MapTex[3].w = MapMesh[3][0].vx - MapMesh[4][0].vx;
-
-	if (MapMesh[0][0].vz - MapMesh[0][1].vz < 0)
-		MapTex[0].v = MapMesh[0][1].vz - MapMesh[0][0].vz;
-	else
-		MapTex[0].v = MapMesh[0][0].vz - MapMesh[0][1].vz;
-
-	MapTex[0].v = 0x20 - MapTex[0].v;
-	MapTex[0].h = MapMesh[0][0].vz - MapMesh[0][1].vz;
-
-	if (MapMesh[0][0].vz - MapMesh[0][1].vz < 0)
-		MapTex[0].h = MapMesh[0][1].vz - MapMesh[0][0].vz;
-
-	MapTex[1].h = tile_size;
-	MapTex[1].v = 0;
-	MapTex[2].v = 0;
-	MapTex[3].v = 0;
-	MapTex[2].h = tile_size;
-
-	if (MapMesh[0][3].vz - MapMesh[0][4].vz < 0)
-		MapTex[3].h = MapMesh[0][4].vz - MapMesh[0][3].vz;
-	else
-		MapTex[3].h = MapMesh[0][3].vz - MapMesh[0][4].vz;
+	MapTex[3].w = ABS(MapMesh[3][0].vx - MapMesh[4][0].vx);
+	MapTex[0].v = 32 - ABS(MapMesh[0][0].vz - MapMesh[0][1].vz);
+	
+	MapTex[0].h = ABS(MapMesh[0][0].vz - MapMesh[0][1].vz);
+	MapTex[3].h = ABS(MapMesh[0][3].vz - MapMesh[0][4].vz);
 
 	direction.vx = 0;
 	direction.vz = 0;
@@ -1172,125 +1067,104 @@ LAB_00016fac:
 	gte_SetRotMatrix(&map_matrix);
 	gte_SetTransVector(&translate);
 
-	y = 0;
-	while (y <= r)
+	if (x_mod != 0)
+		MeshWidth = 4;
+	else
+		MeshWidth = 3;
+
+	if (y_mod != 0)
+		MeshHeight = 4;
+	else
+		MeshHeight = 3;
+	
+	// transform the map mesh
+	for (i = 0; i <= MeshWidth; i++)
 	{
-		v1 = MapMeshO[y];
-		v0 = MapMesh[y];
-
-		iVar27 = x + 1;
-		while (iVar27 != 0)
+		for(j = 0; j <= MeshHeight; j++)
 		{
-			RotTrans(v0, v1, &flag);
-
-			v1++;
-			v0++;
-
-			iVar27--;
+			RotTrans(&MapMesh[i][j], &MapMeshO[i][j], &flag);
 		}
-		y++;
 	}
 
-	y = 0;
-	iVar27 = 0;
-
-	while (iVar27 < x)
+	// draw map mesh booooi
+	for (i = 0; i < MeshHeight; i++)
 	{
-		y_00 = 0;
-		iVar27 = y + 1;
-
-		pbVar25 = (char*)maptile + y;
-		plVar18 = &((VECTOR*)MapMeshO)[5].vz + iVar27 * 4;
-		plVar16 = &((VECTOR*)MapMeshO)[5].vz + y * 4;
-		psVar11 = &MapTex[0].w;
-
-		while (y_00 < r)
+		for (j = 0; j < MeshWidth; j++)
 		{
-			if ((MapSegmentPos[*pbVar25].x & 0x18U) == 24)
-				cVar22 = (char)MapTex[y_00].w - 1;
+			int tile;
+			tile = maptile[j][i];
+			
+			if ((MapSegmentPos[tile].x & 24) == 24)
+				width = MapTex[j].w - 1;
 			else
-				cVar22 = (char)MapTex[y_00].w;
+				width = MapTex[j].w;
 	
-			if ((MapSegmentPos[*pbVar25].y & 0x60U) == 96)
-				cVar20 = (char)MapTex[y].h - 1;
+			if ((MapSegmentPos[tile].y & 96) == 96)
+				height = MapTex[i].h - 1;
 			else
-				cVar20 = (char)MapTex[y].h;
+				height = MapTex[i].h;
 
-			local_a3_2816 = (POLY_FT4*)current->primptr;
+			spt = (POLY_FT4*)current->primptr;
 
-			setPolyFT4(local_a3_2816);
-			setSemiTrans(local_a3_2816, 1);
-
-			uVar10 = 100;
+			setPolyFT4(spt);
+			setSemiTrans(spt, 1);
+			
 			if (gTimeOfDay == 3) 
-			{
-				uVar10 = 50;
-			}
+				spt->r0 = spt->g0 = spt->b0 = 50;
+			else
+				spt->r0 = spt->g0 = spt->b0 = 100;
 
-			local_a3_2816->r0 = uVar10;
-			local_a3_2816->g0 = uVar10;
-			local_a3_2816->b0 = uVar10;
+			spt->clut = MapClut;
+			spt->tpage = MapTPage;
 
-			local_a3_2816->clut = MapClut;
-			local_a3_2816->tpage = MapTPage;
+			spt->x0 = MapMeshO[j][i].vx;
+			spt->y0 = MapMeshO[j][i].vz;
 
-			local_a3_2816->x0 = *(short*)(plVar16 - 22);
-			local_a3_2816->y0 = *(short*)(plVar16 - 20);
+			spt->x1 = MapMeshO[j+1][i].vx;
+			spt->y1 = MapMeshO[j+1][i].vz;
 
-			local_a3_2816->x1 = *(short*)(plVar16 - 2);
-			local_a3_2816->y1 = *(short*)plVar16;
+			spt->x2 = MapMeshO[j][i+1].vx;
+			spt->y2 = MapMeshO[j][i+1].vz;
 
-			local_a3_2816->x2 = *(short*)(plVar18 - 22);
-			local_a3_2816->y2 = *(short*)(plVar18 - 20);
+			spt->x3 = MapMeshO[j+1][i+1].vx;
+			spt->y3 = MapMeshO[j+1][i+1].vz;
 
-			local_a3_2816->x3 = *(short*)(plVar18 - 2);
-			local_a3_2816->y3 = *(short*)plVar18;
+			spt->u0 = MapTex[j].u + MapSegmentPos[tile].x * 4;
+			spt->v0 = MapTex[i].v + MapSegmentPos[tile].y;
 
-			local_a3_2816->u0 = MapTex[y_00].u + MapSegmentPos[*pbVar25].x * 4;
-			local_a3_2816->v0 = MapTex[y].v + MapSegmentPos[*pbVar25].y;
+			spt->u1 = MapTex[j].u + MapSegmentPos[tile].x * 4 + width;
+			spt->v1 = MapTex[i].v + MapSegmentPos[tile].y;
 
-			local_a3_2816->u1 = MapTex[y_00].u + MapSegmentPos[*pbVar25].x * 4 + cVar22;
-			local_a3_2816->v1 = MapTex[y].v + MapSegmentPos[*pbVar25].y;
+			spt->u2 = MapTex[j].u + MapSegmentPos[tile].x * 4;
+			spt->v2 = MapTex[i].v + MapSegmentPos[tile].y + height;
 
-			local_a3_2816->u2 = MapTex[y_00].u + MapSegmentPos[*pbVar25].x * 4;
-			local_a3_2816->v2 = MapTex[y].v + MapSegmentPos[*pbVar25].y + cVar20;
+			spt->u3 = MapTex[j].u + MapSegmentPos[tile].x * 4 + width;
+			spt->v3 = MapTex[i].v + MapSegmentPos[tile].y + height;
 
-			local_a3_2816->u3 = MapTex[y_00].u + MapSegmentPos[*pbVar25].x * 4 + cVar22;
-			local_a3_2816->v3 = MapTex[y].v + MapSegmentPos[*pbVar25].y + cVar20;
-
-			psVar11 = psVar11 + 4;
-			plVar16 = plVar16 + 0x14;
-			plVar18 = plVar18 + 0x14;
-			pbVar25 = pbVar25 + 4;
-
-			addPrim(current->ot, local_a3_2816);
+			addPrim(current->ot, spt);
 
 			current->primptr += sizeof(POLY_FT4);
-
-			y_00++;
 		}
-
-		y = iVar27;
 	}
 
-	polyf4 = (POLY_F4 *)current->primptr;
+	sptb = (POLY_F4 *)current->primptr;
 
-	setPolyF4(polyf4);
+	setPolyF4(sptb);
 
-	polyf4->r0 = 60;
-	polyf4->g0 = 60;
-	polyf4->b0 = 60;
+	sptb->r0 = 60;
+	sptb->g0 = 60;
+	sptb->b0 = 60;
 
-	polyf4->y0 = 0xb6;
-	polyf4->y1 = 0xb6;
-	polyf4->x0 = 0xf5;
-	polyf4->x1 = 0x13b;
-	polyf4->x2 = 0xf5;
-	polyf4->y2 = 0xf2;
-	polyf4->x3 = 0x13b;
-	polyf4->y3 = 0xf2;
+	sptb->y0 = map_minY;
+	sptb->y1 = map_minY;
+	sptb->x0 = map_minX;
+	sptb->x1 = map_maxX;
+	sptb->x2 = map_minX;
+	sptb->y2 = map_maxY;
+	sptb->x3 = map_maxX;
+	sptb->y3 = map_maxY;
 
-	addPrim(current->ot, polyf4);
+	addPrim(current->ot, sptb);
 	current->primptr += sizeof(POLY_F4);
 
 	null = (POLY_FT3 *)current->primptr;
@@ -1307,10 +1181,10 @@ LAB_00016fac:
 	addPrim(current->ot, null);
 	current->primptr += sizeof(POLY_FT3);
 
-	clipped_size.x = 250;
-	clipped_size.w = 60;
-	clipped_size.h = 60;
-	clipped_size.y = (current->draw).clip.y + 181;
+	clipped_size.x = map_minX + 1;
+	clipped_size.w = MAP_SIZE_W - 1;
+	clipped_size.h = MAP_SIZE_H - 1;
+	clipped_size.y = current->draw.clip.y + map_minY + 1;
 
 	drarea = (DR_AREA*)current->primptr;
 
@@ -1330,12 +1204,12 @@ LAB_00016fac:
 		// Start line: 1376
 		// Start offset: 0x00017C30
 		// Variables:
-	// 		struct TILE *polys; // $v0
-	// 		struct POLY_FT4 *back; // $a1
-	// 		struct POLY_FT3 *null; // $a2
-	// 		struct SVECTOR Mesh[4]; // stack offset -192
-	// 		struct VECTOR MeshO[4]; // stack offset -160
-	// 		struct VECTOR target; // stack offset -96
+	// 		TILE *polys; // $v0
+	// 		POLY_FT4 *back; // $a1
+	// 		POLY_FT3 *null; // $a2
+	// 		SVECTOR Mesh[4]; // stack offset -192
+	// 		VECTOR MeshO[4]; // stack offset -160
+	// 		VECTOR target; // stack offset -96
 	// 		long flag; // stack offset -64
 	// 		long count; // $s4
 	// 		int width; // stack offset -60
@@ -1374,8 +1248,8 @@ LAB_00016fac:
 				// Start line: 1620
 				// Start offset: 0x000182B0
 				// Variables:
-			// 		struct VECTOR vec; // stack offset -80
-			// 		struct TILE_1 *tile1; // $v1
+			// 		VECTOR vec; // stack offset -80
+			// 		TILE_1 *tile1; // $v1
 			/* end block 1.3.1 */
 			// End offset: 0x000182B0
 			// End Line: 1620
@@ -1404,22 +1278,16 @@ LAB_00016fac:
 /* WARNING: Could not reconcile some variable overlaps */
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
+// [D] [T]
 void DrawFullscreenMap(void)
 {
-	ushort uVar1;
-	short sVar2;
 	TILE *polys;
-	int iVar3;
 	TILE_1 *tile1;
-	uint uVar4;
 	POLY_FT4 *back;
 	POLY_FT3 *null;
-	VECTOR *v1;
-	uint *puVar5;
-	SVECTOR *v0;
-	int y;
-	int iVar6;
-	int x;
+	int x, y;
+	int clipped;
+	int px, py;
 	SVECTOR mesh[4];
 	VECTOR meshO[4];
 	VECTOR target;
@@ -1427,10 +1295,10 @@ void DrawFullscreenMap(void)
 	long flag;
 	int width;
 	int height;
-	int local_34;
-	VECTOR *local_30;
+	int count;
 
-	if ((Pads[0].dirnew & 0x20) != 0) 
+	// toggle rotated map
+	if (Pads[0].dirnew & 0x20) 
 	{
 		map_x_offset = 0;
 		map_z_offset = 0;
@@ -1461,91 +1329,96 @@ void DrawFullscreenMap(void)
 	width = overlaidmaps[GameLevel].width;
 	height = overlaidmaps[GameLevel].height;
 
-	WorldToFullscreenMap((VECTOR *)player, &player_position);
+	WorldToFullscreenMap((VECTOR *)player->pos, &player_position);
 
-	if (gUseRotatedMap != 0) 
+	// do map movement
+	if (gUseRotatedMap) 
 	{
-		if ((Pads[0].direct & 0x8000) == 0) {
-			if ((Pads[0].direct & 0x2000) != 0) {
-				map_x_offset = map_x_offset + -8;
-			}
-		}
-		else {
-			map_x_offset = map_x_offset + 8;
-		}
-		if ((Pads[0].direct & 0x1000) == 0) {
-			if ((Pads[0].direct & 0x4000) != 0) {
-				map_z_offset = map_z_offset + -8;
-			}
-		}
-		else {
-			map_z_offset = map_z_offset + 8;
-		}
-		if (map_x_offset < -0x80) {
-			map_x_offset = -0x80;
-		}
-		if (0x80 < map_x_offset) {
-			map_x_offset = 0x80;
-		}
-		if (map_z_offset < -0x80) {
-			map_z_offset = -0x80;
-		}
-		if (0x80 < map_z_offset) {
-			map_z_offset = 0x80;
-		}
+		if (Pads[0].direct & 0x8000)
+			map_x_offset += 8;
+		else if (Pads[0].direct & 0x2000)
+			map_x_offset -= 8;
+		
+		if (Pads[0].direct & 0x1000) 
+			map_z_offset += 8;
+		else if (Pads[0].direct & 0x4000)
+			map_z_offset -= 8;
+
+		if (map_x_offset < -128)
+			map_x_offset = -128;
+
+		if (map_x_offset > 128)
+			map_x_offset = 128;
+
+		if (map_z_offset < -128)
+			map_z_offset = -128;
+
+		if (map_z_offset > 128)
+			map_z_offset = 128;
+
 		map_x_shift = 0;
 		map_z_shift = 0;
-		goto LAB_00017f8c;
-	}
-
-	map_x_offset = (player_position.vx + 0xa0) - width;
-
-	if ((player_position.vx + 0xa0 <= width) &&
-		(map_x_offset = player_position.vx + -0xa0, -1 < map_x_offset))
-	{
-		map_x_offset = 0;
-	}
-
-	map_z_offset = (player_position.vz + 0x80) - height;
-
-	if ((player_position.vz + 0x80 <= height) && (map_z_offset = player_position.vz + -0x80, -1 < map_z_offset)) 
-	{
-		map_z_offset = 0;
-	}
-	if ((Pads[0].direct & 0x8000) == 0)
-	{
-		if (((Pads[0].direct & 0x2000) != 0) &&
-			(iVar3 = map_x_shift + -8,
-			((player_position.vx - map_x_offset) + 0xa0) - map_x_shift < width)) 
-			goto LAB_00017f0c;
 	}
 	else
 	{
-		iVar3 = map_x_shift + 8;
-		if (0 < ((player_position.vx - map_x_offset) + -0xa0) - map_x_shift) {
-		LAB_00017f0c:
-			map_x_shift = iVar3;
+		if(player_position.vx + 160 <= width)
+		{
+			map_x_offset = player_position.vx - 160;
+			
+			if(map_x_offset > -1)
+				map_x_offset = 0;
 		}
+		else
+		{
+			map_x_offset = (player_position.vx + 160) - width;
+		}
+
+		if(player_position.vz + 128 <= height)
+		{
+			map_z_offset = player_position.vz - 128;
+			
+			if (map_z_offset > -1) 
+				map_z_offset = 0;
+		}
+		else
+		{
+			map_z_offset = (player_position.vz + 128) - height;
+		}
+
+		if (Pads[0].direct & 0x8000)
+		{
+			if (player_position.vx - map_x_offset - 160 - map_x_shift > 0) 
+			{
+				map_x_shift += 8;
+			}
+		}
+		else if(Pads[0].direct & 0x2000)
+		{
+			if (player_position.vx - map_x_offset + 160 - map_x_shift < width)
+			{
+				map_x_shift -= 8;
+			}
+		}
+
+		if (Pads[0].direct & 0x1000) 
+		{
+			if (player_position.vz - map_z_offset - 128 - map_z_shift > 0)
+			{
+				map_z_shift += 8;
+			}
+		}
+		else if(Pads[0].direct & 0x4000)
+		{
+			if (player_position.vz - map_z_offset + 128 - map_z_shift < height)
+			{
+				map_z_shift -= 8;
+			}
+		}
+
+		map_x_offset += map_x_shift;
+		map_z_offset += map_z_shift;
 	}
 
-	if ((Pads[0].direct & 0x1000) == 0) 
-	{
-		if (((Pads[0].direct & 0x4000) != 0) &&
-			(iVar3 = map_z_shift + -8,
-			((player_position.vz - map_z_offset) + 0x80) - map_z_shift < height)) goto LAB_00017f64;
-	}
-	else 
-	{
-		iVar3 = map_z_shift + 8;
-		if (0 < ((player_position.vz - map_z_offset) + -0x80) - map_z_shift) {
-		LAB_00017f64:
-			map_z_shift = iVar3;
-		}
-	}
-
-	map_x_offset = map_x_offset + map_x_shift;
-	map_z_offset = map_z_offset + map_z_shift;
-LAB_00017f8c:
 
 	null = (POLY_FT3 *)current->primptr;
 
@@ -1561,96 +1434,82 @@ LAB_00017f8c:
 	DrawPrim(null);
 	DrawSync(0);
 
-	local_30 = &target;
-	local_34 = 0;
-	while (true) {
-		x = local_34;
-		iVar3 = width;
+	width >>= 5;
+	height >>= 5;
 
-		if (iVar3 >> 5 <= x)
-			break;
+	px = MapSegmentPos[0].x * 4;
+	py = MapSegmentPos[0].y;
 
-		local_34 = x + 1;
-		iVar3 = 0;
-
-		while (true) 
+	for(x = 0; x < width; x++)
+	{
+		for(y = 0; y < height; y++)
 		{
-			y = iVar3;
-			iVar3 = height;
-
-			iVar6 = 0;
-
-			if (iVar3 >> 5 <= y)
-				break;
-
-			puVar5 = (uint *)&meshO[0].vz;
-			v1 = meshO;
-			v0 = mesh;
-			iVar3 = 3;
 			mesh[0].vy = 0;
 			mesh[1].vy = 0;
 			mesh[2].vy = 0;
 			mesh[3].vy = 0;
-			mesh[0].vx = (short)x * 0x20 - (short)player_position.vx;
-			mesh[1].vx = mesh[0].vx + 0x20;
-			mesh[0].vz = (short)y * 0x20 - (short)player_position.vz;
-			mesh[2].vz = mesh[0].vz + 0x20;
+			mesh[0].vx = x * 32 - player_position.vx;
+			mesh[1].vx = mesh[0].vx + 32;
+			mesh[0].vz = y * 32 - player_position.vz;
+			mesh[2].vz = mesh[0].vz + 32;
 			mesh[1].vz = mesh[0].vz;
 			mesh[2].vx = mesh[0].vx;
 			mesh[3].vx = mesh[1].vx;
 			mesh[3].vz = mesh[2].vz;
 
-			do {
-				RotTrans(v0, v1, &flag);
-				v1->vx = v1->vx + map_x_offset;
-				uVar4 = *puVar5;
-				*puVar5 = uVar4 + map_z_offset;
+			// rotate and clip polygons
+			clipped = 0;
 
-				if ((0x140 < v1->vx) || (0x100 < uVar4 + map_z_offset)) {
-					iVar6 = iVar6 + 1;
-				}
-
-				puVar5 = puVar5 + 4;
-				v1 = v1 + 1;
-				iVar3 = iVar3 + -1;
-				v0 = v0 + 1;
-			} while (-1 < iVar3);
-
-			iVar3 = y + 1;
-
-			if(iVar6 != 4) 
+			for (count = 0; count < 4; count++)
 			{
-				LoadMapTile(0, x, y);
+				RotTrans(&mesh[count], &meshO[count], &flag);
 
-				back = (POLY_FT4 *)current->primptr;
-				setPolyFT4(back);
+				meshO[count].vx += map_x_offset;
+				meshO[count].vz += map_z_offset;
 
-				back->r0 = 88;
-				back->g0 = 88;
-				back->b0 = 88;
-
-				back->x0 = meshO[0].vx;
-				back->y0 = meshO[0].vz;
-				back->x1 = meshO[1].vx;
-				back->y1 = meshO[1].vz;
-				back->x2 = meshO[2].vx;
-				back->y2 = meshO[2].vz;
-				back->x3 = meshO[3].vx;
-				back->y3 = meshO[3].vz;
-				back->u0 = MapSegmentPos[0].x << 2;
-				back->v0 = MapSegmentPos[0].y;
-				back->u1 = MapSegmentPos[0].x * 4 + 31;
-				back->v1 = MapSegmentPos[0].y;
-				back->u2 = MapSegmentPos[0].x << 2;
-				back->v2 = MapSegmentPos[0].y + 31;
-				back->u3 = MapSegmentPos[0].x * 4 + 31;
-				back->v3 = MapSegmentPos[0].y + 31;
-				back->clut = MapClut;
-				back->tpage = MapTPage;
-
-				DrawPrim(back);
-				DrawSync(0);
+				if (meshO[count].vx > 320 || meshO[count].vz > 256)
+					clipped++;
 			}
+
+			if(clipped == 4)
+				continue;
+			
+			LoadMapTile(0, x, y);
+
+			back = (POLY_FT4 *)current->primptr;
+			setPolyFT4(back);
+
+			back->r0 = back->g0 = back->b0 = 88;
+
+			back->x0 = meshO[0].vx;
+			back->y0 = meshO[0].vz;
+			
+			back->x1 = meshO[1].vx;
+			back->y1 = meshO[1].vz;
+			
+			back->x2 = meshO[2].vx;
+			back->y2 = meshO[2].vz;
+			
+			back->x3 = meshO[3].vx;
+			back->y3 = meshO[3].vz;
+
+			back->u0 = px;
+			back->v0 = py;
+			
+			back->u1 = px + 31;
+			back->v1 = py;
+			
+			back->u2 = px;
+			back->v2 = py + 31;
+			
+			back->u3 = px + 31;
+			back->v3 = py + 31;
+			
+			back->clut = MapClut;
+			back->tpage = MapTPage;
+
+			DrawPrim(back);
+			DrawSync(0);
 		}
 	}
 
@@ -1659,12 +1518,12 @@ LAB_00017f8c:
 
 	DrawFullscreenTargets();
 
-	if (gUseRotatedMap == 0)
-		DrawBigCompass(local_30, 0);
+	if (gUseRotatedMap)
+		DrawBigCompass(&target, player[0].dir);
 	else 
-		DrawBigCompass(local_30, player[0].dir);
+		DrawBigCompass(&target, 0);
 
-	DrawTargetBlip(local_30, 64, 64, 64, 14);
+	DrawTargetBlip(&target, 64, 64, 64, 14);
 
 	vec.vx = target.vx + map_x_offset;
 	vec.vz = target.vz + map_z_offset;
@@ -1694,9 +1553,10 @@ LAB_00017f8c:
 	DrawPrim(null);
 	DrawSync(0);
 
-	SetTextColour(0x80, 0x80, 0x80);
+	SetTextColour(128, 128, 128);
 
-	PrintStringCentred("\x80 Exit \x81 Rotation \x8a Move", 0xe2);
+	// print string with special characters representing some images inserted into it
+	PrintStringCentred("\x80 Exit \x81 Rotation \x8a Move", 226);
 }
 
 
@@ -1710,7 +1570,7 @@ LAB_00017f8c:
 		// Start offset: 0x000183E8
 		// Variables:
 	// 		static int ft[16]; // offset 0x188
-	// 		struct _CAR_DATA *cp; // $s0
+	// 		CAR_DATA *cp; // $s0
 	// 		int fade; // $s1
 	// 		int cc; // $s3
 	// 		int cs; // $s2
@@ -1760,44 +1620,30 @@ LAB_00017f8c:
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DrawCopIndicators(void)
 {
-	short sVar1;
-	short sVar2;
-	int iVar3;
-	int iVar4;
-	int iVar5;
-	int iVar6;
-	_CAR_DATA *cp;
+	int cc, cs;
+	int dx, dz;
+	int p, q;
+	CAR_DATA *cp;
 
-	sVar1 = rcossin_tbl[(player[0].dir & 0xfffU) * 2 + 1];
-	sVar2 = rcossin_tbl[(player[0].dir & 0xfffU) * 2];
+	cc = rcossin_tbl[(player[0].dir & 0xfffU) * 2 + 1];
+	cs = rcossin_tbl[(player[0].dir & 0xfffU) * 2];
 
 	cp = car_data;
 	do {
-		if ((cp->controlType == CONTROL_TYPE_PURSUER_AI) && (cp->ai.p.dying == 0))
+		if (cp->controlType == CONTROL_TYPE_PURSUER_AI && cp->ai.p.dying == 0)
 		{
-			iVar6 = cp->hd.where.t[0] - player[0].pos[0];
-			iVar4 = cp->hd.where.t[2] - player[0].pos[2];
+			dx = cp->hd.where.t[0] - player[0].pos[0];
+			dz = cp->hd.where.t[2] - player[0].pos[2];
 
-			iVar5 = FIXEDH(iVar6 * sVar1 - iVar4 * sVar2) * 3;
-
-			iVar5 = iVar5 >> 2;
-			iVar3 = FIXEDH(iVar6 * sVar2 + iVar4 * sVar1);
-
-			iVar4 = -iVar3;
-			iVar6 = iVar5;
-
-			if (iVar5 < 0)
-				iVar6 = -iVar5;
+			p = FIXEDH(dx * cc - dz * cs) * 3 >> 2;
+			q = -FIXEDH(dx * cs + dz * cc);
 			
-			if (iVar6 < iVar4)
+			if (ABS(p) < q)
 			{
-				iVar5 = (iVar5 * 0x10a) / iVar4;
-				iVar4 = (iVar4 >> 3) + 600;
-
-				CopIndicator(iVar5 + 0xa0, 0x3fff0 / iVar4);
+				CopIndicator((p * 266) / q + 160, 0x3fff0 / ((q >> 3) + 600));
 			}
 		}
 		cp++;
@@ -1814,7 +1660,7 @@ void DrawCopIndicators(void)
 		// Start line: 1680
 		// Start offset: 0x000198E0
 		// Variables:
-	// 		struct RECT rect; // stack offset -48
+	// 		RECT rect; // stack offset -48
 	// 		char filename[32]; // stack offset -40
 	/* end block 1 */
 	// End offset: 0x00019994
@@ -1837,27 +1683,30 @@ void DrawCopIndicators(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void InitMultiplayerMap(void)
 {
 	RECT16 rect;
 	char filename[32];
 
-	if (MissionHeader->region != 0)
+	if (MissionHeader->region == 0)
+		return;
+
+	// multiplayer maps loaded externally
+	sprintf(filename, "MAPS\\REG%d.%d", MissionHeader->region, GameLevel);
+
+	if (FileExists(filename))
 	{
-		sprintf(filename, "MAPS\\REG%d.%d", MissionHeader->region, GameLevel);
+		Loadfile(filename, MapBitMaps);
+						
+		rect.x = MapRect.x + MapSegmentPos[0].x;
+		rect.y = MapRect.y + MapSegmentPos[0].y;
+		rect.w = 16;
+		rect.h = 64;
+	
+		LoadImage(&rect, (u_long *)MapBitMaps);
 
-		if (FileExists(filename) != 0)
-		{
-			Loadfile(filename, MapBitMaps);
-			rect.w = 0x10;
-			rect.h = 0x40;
-			rect.x = MapRect.x + MapSegmentPos[0].x;
-			rect.y = MapRect.y + MapSegmentPos[0].y;
-			LoadImage(&rect, (u_long *)MapBitMaps);
-
-			DrawSync(0);
-		}
+		DrawSync(0);
 	}
 }
 
@@ -1871,9 +1720,9 @@ void InitMultiplayerMap(void)
 		// Start line: 1699
 		// Start offset: 0x000185A0
 		// Variables:
-	// 		struct POLY_FT4 *poly; // $a2
-	// 		struct LINE_F2 *line2; // $s1
-	// 		struct VECTOR target; // stack offset -64
+	// 		POLY_FT4 *poly; // $a2
+	// 		LINE_F2 *line2; // $s1
+	// 		VECTOR target; // stack offset -64
 	// 		int i; // $s3
 	// 		int y; // $s7
 	/* end block 1 */
@@ -1902,139 +1751,104 @@ void InitMultiplayerMap(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DrawMultiplayerMap(void)
 {
-	short uVar1;
-	ushort uVar2;
-	ulong *puVar4;
 	POLY_FT4 *poly;
-	char *pcVar5;
-	_PLAYER *pPVar6;
-	int iVar7;
-	char *pcVar8;
-	unsigned char g;
-	unsigned char r;
-	int iVar9;
-	short sVar10;
+	PLAYER *pl;
+	int i;
+	u_char g;
+	u_char r;
 	int yPos;
 	VECTOR target;
-	int local_30;
-	int local_2c;
+	int px, py;
 
 	map_x_offset = 0;
 	map_z_offset = 0;
-	yPos = 96;
 
 	if (NumPlayers == 1)
-		yPos = 172;
+		yPos = gMapYOffset;
+	else
+		yPos = 96;
 
-	if (MissionHeader->region != 0) 
-	{
-		iVar7 = 0;
-		DrawMultiplayerTargets();
+	if (MissionHeader->region == 0)
+		return;
 
-		local_2c = yPos + 64;
-		local_30 = yPos - 1;
+	DrawMultiplayerTargets();
 
-		if (NumPlayers != 0) 
-		{
-			pPVar6 = player;
-			r = -1;
-			g = 0;
-			do {
-				target.vx = pPVar6->pos[0];
-				target.vz = pPVar6->pos[2];
-				iVar7 ++;
-				target.vy = 0;
+	pl = player;
+	r = 255;
+	g = 0;
 
-				WorldToMultiplayerMap(&target, &target);
-
-				target.vx += 240;
-				target.vz += yPos;
-
-				DrawPlayerDot(&target, -pPVar6->dir, r, g, 0, 8);
-
-				pPVar6++;
-				r++;
-				g--;
-			} while (iVar7 < (int)(uint)NumPlayers);
-		}
-
-		poly = (POLY_FT4 *)current->primptr;
-		setPolyFT4(poly);
-		setSemiTrans(poly, 1);
-		poly->x0 = 0xf0;
-		poly->y0 = yPos;
-		poly->x1 = 0x130;
-		poly->y1 = yPos;
-		poly->x2 = 0xf0;
-		poly->x3 = 0x130;
-		poly->y2 = local_2c;
-		poly->y3 = local_2c;
-		poly->u0 = MapSegmentPos[0].x << 2;
-		poly->v0 = MapSegmentPos[0].y;
-		poly->u1 = MapSegmentPos[0].x * 4 + 63;
-		poly->v1 = MapSegmentPos[0].y;
-		poly->u2 = MapSegmentPos[0].x << 2;
-		poly->v2 = MapSegmentPos[0].y + 63;
-		poly->u3 = MapSegmentPos[0].x * 4 + 63;
-		poly->v3 = MapSegmentPos[0].y + 63;
-		poly->clut = MapClut;
-		poly->tpage = MapTPage;
-
-		r = 100;
-		if (gTimeOfDay == 3) 
-			r = 50;
-
-		poly->r0 = r;
-		poly->g0 = r;
-		poly->b0 = r;
-
-		addPrim(current->ot, poly);
-		current->primptr += sizeof(POLY_FT4);
-
-		LINE_F4* linef4 = (LINE_F4*)current->primptr;
-		setLineF4(linef4);
+	i = 0;
+	do {
+		target.vx = pl->pos[0];
+		target.vz = pl->pos[2];
 		
-		linef4->r0 = 0;
-		linef4->g0 = 0;
-		linef4->b0 = 0x80;
+		target.vy = 0;
 
-		linef4->x0 = 239;
-		linef4->y0 = yPos - 1;
-		linef4->x1 = 304;
-		linef4->x2 = 304;
-		linef4->y1 = yPos - 1;
-		linef4->x3 = 240;
-		linef4->y2 = yPos + 64;
-		linef4->y3 = yPos + 64;
+		WorldToMultiplayerMap(&target, &target);
 
-		addPrim(current->ot+1, linef4);
-		current->primptr += sizeof(LINE_F4);
+		target.vx += gMapXOffset;
+		target.vz += yPos;
 
-		LINE_F2* linef2 = (LINE_F2*)current->primptr;
-		setLineF2(linef2);
+		DrawPlayerDot(&target, -pl->dir, r, g, 0, 0x8);
 
-		linef2->r0 = 0;
-		linef2->g0 = 0;
-		linef2->b0 = 0x80;
+		pl++;
+	
+		r++;
+		g--;
+	
+		i++;
+	} while (i < NumPlayers);
 
-		linef2->x0 = 239;
-		linef2->y0 = yPos;
-		linef2->x1 = 239;
-		linef2->y1 = yPos + 64;
+	draw_box(yPos, 64);
 
-		addPrim(current->ot + 1, linef2);
-		current->primptr += sizeof(LINE_F2);
-	}
+	// draw map image
+	poly = (POLY_FT4 *)current->primptr;
+	setPolyFT4(poly);
+	setSemiTrans(poly, 1);
+	
+	poly->x0 = gMapXOffset;
+	poly->y0 = yPos;
+	poly->x1 = gMapXOffset + MAP_SIZE_W;
+	poly->y1 = yPos;
+	poly->x2 = gMapXOffset;
+	poly->x3 = gMapXOffset + MAP_SIZE_W;
+	poly->y2 = yPos + 64;
+	poly->y3 = yPos + 64;
+
+	px = MapSegmentPos[0].x * 4;
+	py = MapSegmentPos[0].y;
+	
+	poly->u0 = px;
+	poly->v0 = py;
+	poly->u1 = px + 63;
+	poly->v1 = py;
+	poly->u2 = px;
+	poly->v2 = py + 63;
+	poly->u3 = px + 63;
+	poly->v3 = py + 63;
+
+	poly->clut = MapClut;
+	poly->tpage = MapTPage;
+
+	if (gTimeOfDay == 3) 
+		r = 50;
+	else
+		r = 100;
+
+	poly->r0 = poly->g0 = poly->b0 = r;
+	
+	addPrim(current->ot + 1, poly);
+	current->primptr += sizeof(POLY_FT4);
 }
 
 
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ WorldToMultiplayerMap(struct VECTOR *in /*$a3*/, struct VECTOR *out /*$a2*/)
+// void /*$ra*/ WorldToMultiplayerMap(VECTOR *in /*$a3*/, VECTOR *out /*$a2*/)
  // line 1778, offset 0x00019994
 	/* begin block 1 */
 		// Start line: 1779
@@ -2061,130 +1875,34 @@ void DrawMultiplayerMap(void)
 	/* end block 4 */
 	// End Line: 6899
 
-// [D]
+// [D] [T]
 void WorldToMultiplayerMap(VECTOR *in, VECTOR *out)
 {
-	int iVar1;
-	int iVar2;
-	int iVar3;
+	int z;
+	int x;
 
-	if (MissionHeader->region != 0)
+	if (MissionHeader->region == 0)
 	{
-		iVar3 = MissionHeader->region / regions_across;
-		iVar2 = in->vx - ((MissionHeader->region % regions_across) * 0x10000 - cells_across * 1024);
-		iVar1 = cells_down * -1024;
-
-		out->vx = iVar2 >> 0xb;
-
-		iVar1 = in->vz - ((iVar3-1) * 0x10000 + iVar1);
-
-		out->vz = 64 - (iVar1 >> 0xb);
+		out->vx = 32;
+		out->vz = 32;
 		return;
 	}
 
-	out->vx = 32;
-	out->vz = 32;
+	x = in->vx - (((MissionHeader->region % regions_across) << 16) - cells_across * MAP_CELL_SIZE/2);
+	z = in->vz - (((MissionHeader->region / regions_across) << 16) - cells_down * MAP_CELL_SIZE/2);
+
+	out->vx = x / MAP_CELL_SIZE;
+	out->vz = MAP_REGION_SIZE - z / MAP_CELL_SIZE;
 }
+
+
+
 
 
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ ProcessPalletLump(char *lump_ptr /*$a0*/, int lump_size /*$a1*/)
- // line 1970, offset 0x00019f44
-	/* begin block 1 */
-		// Start line: 1971
-		// Start offset: 0x00019F44
-		// Variables:
-	// 		int total_cluts; // $v0
-	// 		int clutValue; // $s1
-	// 		int tpageindex; // $s2
-	// 		int texnum; // $s3
-	// 		int palette; // $s4
-	// 		int clut_number; // $v1
-	// 		unsigned short clutTable[320]; // stack offset -680
-	// 		char *buffPtr; // $s0
-
-		/* begin block 1.1 */
-			// Start line: 2013
-			// Start offset: 0x00019FD0
-		/* end block 1.1 */
-		// End offset: 0x00019FD0
-		// End Line: 2013
-	/* end block 1 */
-	// End offset: 0x0001A094
-	// End Line: 2034
-
-	/* begin block 2 */
-		// Start line: 8209
-	/* end block 2 */
-	// End Line: 8210
-
-	/* begin block 3 */
-		// Start line: 3940
-	/* end block 3 */
-	// End Line: 3941
-
-unsigned short civ_clut[8][32][6];
-
-// [D]
-void ProcessPalletLump(char *lump_ptr, int lump_size)
-{
-	if (gDriver1Level)
-		return;
-
-	char cVar1;
-	ushort uVar2;
-	int *local_s0_96;
-	int *local_s0_228;
-	int iVar3;
-	int iVar4;
-	u_short *puVar5;
-	unsigned short clutTable[320];
-
-	if ((*(int *)lump_ptr != 0) && (*(int *)(lump_ptr + 4) != -1)) 
-	{
-		local_s0_96 = (int *)(lump_ptr + 4);
-
-		puVar5 = (u_short *)clutTable;
-		do {
-			iVar4 = *local_s0_96;
-			iVar3 = local_s0_96[1];
-
-			cVar1 = GetCarPalIndex(local_s0_96[2]);
-
-			local_s0_228 = local_s0_96 + 4;
-
-			if (local_s0_96[3] == -1) {
-				LoadImage(&clutpos, (u_long *)local_s0_228);
-
-				local_s0_228 = local_s0_96 + 12;
-
-				uVar2 = GetClut((int)clutpos.x, (int)clutpos.y);
-
-				*puVar5 = uVar2;
-				puVar5 = puVar5 + 1;
-				IncrementClutNum(&clutpos);
-			}
-			else {
-				uVar2 = clutTable[local_s0_96[3]];
-			}
-
-			civ_clut[cVar1][iVar3][iVar4 + 1] = uVar2;
-
-			local_s0_96 = local_s0_228;
-
-		} while (*local_s0_228 != -1);
-	}
-
-	//Emulator_SaveVRAM("VRAM_CLUTS.TGA", 0, 0, VRAM_WIDTH, VRAM_HEIGHT, TRUE);
-}
-
-
-
-// decompiled code
-// original method signature: 
-// void /*$ra*/ load_civ_palettes(struct RECT *cluts /*$a0*/)
+// void /*$ra*/ load_civ_palettes(RECT *cluts /*$a0*/)
  // line 2043, offset 0x0001a094
 	/* begin block 1 */
 		// Start line: 8350
@@ -2216,7 +1934,7 @@ void load_civ_palettes(RECT16 *cluts)
 		// Start line: 2321
 		// Start offset: 0x00018980
 		// Variables:
-	// 		struct TILE *tile; // $a3
+	// 		TILE *tile; // $a3
 	/* end block 1 */
 	// End offset: 0x00018AA0
 	// End Line: 2341
@@ -2241,7 +1959,7 @@ void load_civ_palettes(RECT16 *cluts)
 	/* end block 5 */
 	// End Line: 5651
 
-// [D]
+// [D] [T]
 void FlashOverheadMap(int r, int g, int b)
 {
 	TILE *prim;
@@ -2255,10 +1973,11 @@ void FlashOverheadMap(int r, int g, int b)
 	prim->g0 = g;
 	prim->b0 = b;
 
-	prim->x0 = 0xfa;
-	prim->y0 = 0xb6;
-	prim->w = 0x3c;
-	prim->h = 0x3c;
+	prim->x0 = gMapXOffset;
+	prim->y0 = gMapYOffset;
+	prim->w = MAP_SIZE_W;
+	prim->h = MAP_SIZE_H;
+
 
 	addPrim(current->ot, prim);
 
@@ -2292,7 +2011,7 @@ void FlashOverheadMap(int r, int g, int b)
 		// Start line: 2351
 		// Start offset: 0x00018AA0
 		// Variables:
-	// 		struct RECT MapSegment; // stack offset -16
+	// 		RECT MapSegment; // stack offset -16
 	// 		int temp; // $a0
 	// 		int count; // $a2
 	// 		int idx; // $a3
@@ -2315,7 +2034,7 @@ void FlashOverheadMap(int r, int g, int b)
 	/* end block 4 */
 	// End Line: 5743
 
-// [D]
+// [D] [T]
 void LoadMapTile(int tpage, int x, int y)
 {
 	int temp; // $a0
@@ -2374,15 +2093,15 @@ void LoadMapTile(int tpage, int x, int y)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void SetMapPos(void)
 {
-	int iVar1;
+	int scale;
 
-	iVar1 = overlaidmaps[GameLevel].scale;
+	scale = overlaidmaps[GameLevel].scale;
 
-	x_map = overlaidmaps[GameLevel].x_offset + player[0].pos[0] / iVar1;
-	y_map = overlaidmaps[GameLevel].y_offset - player[0].pos[2] / iVar1;
+	x_map = overlaidmaps[GameLevel].x_offset + player[0].pos[0] / scale;
+	y_map = overlaidmaps[GameLevel].y_offset - player[0].pos[2] / scale;
 }
 
 
@@ -2395,8 +2114,8 @@ void SetMapPos(void)
 		// Start line: 2407
 		// Start offset: 0x00018BF4
 		// Variables:
-	// 		struct LINE_F4 *line4; // $s0
-	// 		struct LINE_F2 *line2; // $s1
+	// 		LINE_F4 *line4; // $s0
+	// 		LINE_F2 *line2; // $s1
 	/* end block 1 */
 	// End offset: 0x00018D54
 	// End Line: 2427
@@ -2423,8 +2142,8 @@ void SetMapPos(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
-void draw_box(void)
+// [D] [T]
+void draw_box(int yPos, int h)
 {
 	LINE_F4* linef4 = (LINE_F4*)current->primptr;
 	setLineF4(linef4);
@@ -2433,17 +2152,17 @@ void draw_box(void)
 	linef4->g0 = 0;
 	linef4->b0 = 128;
 
-	linef4->x0 = 249;
-	linef4->y0 = 181;
+	linef4->x0 = gMapXOffset;
+	linef4->y0 = yPos;
 
-	linef4->x1 = 310;
-	linef4->x2 = 310;
+	linef4->x1 = gMapXOffset + MAP_SIZE_W;
+	linef4->x2 = gMapXOffset + MAP_SIZE_W;
 
-	linef4->y1 = 181;
-	linef4->x3 = 249;
+	linef4->y1 = yPos;
+	linef4->x3 = gMapXOffset;
 
-	linef4->y2 = 241;
-	linef4->y3 = 241;
+	linef4->y2 = yPos + h;
+	linef4->y3 = yPos + h;
 
 	addPrim(current->ot + 1, linef4);
 	current->primptr += sizeof(LINE_F4);
@@ -2455,10 +2174,11 @@ void draw_box(void)
 	linef2->g0 = 0;
 	linef2->b0 = 128;
 
-	linef2->x0 = 249;
-	linef2->y0 = 181;
-	linef2->x1 = 249;
-	linef2->y1 = 241;
+	linef2->x0 = gMapXOffset;
+	linef2->y0 = yPos;
+
+	linef2->x1 = gMapXOffset;
+	linef2->y1 = yPos + h;
 
 	addPrim(current->ot + 1, linef2);
 	current->primptr += sizeof(LINE_F2);
@@ -2468,21 +2188,21 @@ void draw_box(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawN(struct VECTOR *pScreenPosition /*$s2*/, int direct /*$s7*/)
+// void /*$ra*/ DrawN(VECTOR *pScreenPosition /*$s2*/, int direct /*$s7*/)
  // line 2435, offset 0x00018d54
 	/* begin block 1 */
 		// Start line: 2436
 		// Start offset: 0x00018D54
 		// Variables:
-	// 		struct XYPAIR lastPoint; // stack offset -48
-	// 		struct XYPAIR *pPoint; // $s0
+	// 		XYPAIR lastPoint; // stack offset -48
+	// 		XYPAIR *pPoint; // $s0
 	// 		char loop; // $s4
 
 		/* begin block 1.1 */
 			// Start line: 2446
 			// Start offset: 0x00018DC4
 			// Variables:
-		// 		struct LINE_F2 *pLine; // $a2
+		// 		LINE_F2 *pLine; // $a2
 		/* end block 1.1 */
 		// End offset: 0x00018EC4
 		// End Line: 2469
@@ -2502,7 +2222,7 @@ void draw_box(void)
 
 /* WARNING: Could not reconcile some variable overlaps */
 
-// [D]
+// [D] [T]
 void DrawN(VECTOR *pScreenPosition, int direct)
 {
 	int i;
@@ -2574,8 +2294,8 @@ void DrawN(VECTOR *pScreenPosition, int direct)
 		// Start line: 2481
 		// Start offset: 0x00018F18
 		// Variables:
-	// 		struct VECTOR position[5]; // stack offset -88
-	// 		struct XYPAIR *pNorth; // $a1
+	// 		VECTOR position[5]; // stack offset -88
+	// 		XYPAIR *pNorth; // $a1
 	// 		int scale; // $a0
 
 		/* begin block 1.1 */
@@ -2583,14 +2303,14 @@ void DrawN(VECTOR *pScreenPosition, int direct)
 			// Start offset: 0x00018F18
 			// Variables:
 		// 		char loop; // $t2
-		// 		struct VECTOR *pPosition; // $a3
+		// 		VECTOR *pPosition; // $a3
 		// 		void *pot; // $s0
 
 			/* begin block 1.1.1 */
 				// Start line: 2511
 				// Start offset: 0x000190B8
 				// Variables:
-			// 		struct LINE_G2 *pLine; // $a0
+			// 		LINE_G2 *pLine; // $a0
 			/* end block 1.1.1 */
 			// End offset: 0x000190B8
 			// End Line: 2511
@@ -2624,7 +2344,7 @@ void DrawN(VECTOR *pScreenPosition, int direct)
 /* WARNING: Could not reconcile some variable overlaps */
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DrawCompass(void)
 {
 	int i;
@@ -2635,12 +2355,12 @@ void DrawCompass(void)
 
 	position[1].vx = north[GameLevel].x * overlaidmaps[GameLevel].scale;
 	position[1].vz = north[GameLevel].y * overlaidmaps[GameLevel].scale;
-	position[0].vx = position[1].vx * 0x14 + 8 >> 4;
+	position[0].vx = position[1].vx * 20 + 8 >> 4;
 	position[2].vx = position[1].vx + 2 >> 2;
-	position[0].vz = position[1].vz * 0x14 + 8 >> 4;
+	position[0].vz = position[1].vz * 20 + 8 >> 4;
 	position[2].vz = position[1].vz + 2 >> 2;
-	position[3].vx = (position[1].vz - position[1].vx) * 0xab >> 10;
-	position[3].vz = (-position[1].vx - position[1].vz) * 0xab >> 10;
+	position[3].vx = (position[1].vz - position[1].vx) * 171 >> 10;
+	position[3].vz = (-position[1].vx - position[1].vz) * 171 >> 10;
 	position[4].vz = -position[3].vx;
 	position[4].vx = position[3].vz;
 
@@ -2655,8 +2375,9 @@ void DrawCompass(void)
 	potz = current->ot;
 
 	pPosition = position + 2;
-	i = 0;
-	do {
+
+	for (i = 0; i < 3; i++)
+	{
 		lineg2 = (LINE_G2 *)current->primptr;
 
 		setLineG2(lineg2);
@@ -2677,15 +2398,12 @@ void DrawCompass(void)
 		lineg2->g1 = 0;
 		lineg2->b1 = 0;
 
-		
-
 		addPrim(potz, lineg2);
 
 		current->primptr += sizeof(LINE_G2);
 
 		pPosition++;
-		i++;
-	} while (i < 3);
+	}
 
 	DrawN(position, 0);
 
@@ -2696,21 +2414,21 @@ void DrawCompass(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawBigCompass(struct VECTOR *root /*$a0*/, int angle /*$a1*/)
+// void /*$ra*/ DrawBigCompass(VECTOR *root /*$a0*/, int angle /*$a1*/)
  // line 2534, offset 0x00019194
 	/* begin block 1 */
 		// Start line: 2535
 		// Start offset: 0x00019194
 		// Variables:
-	// 		struct VECTOR position[5]; // stack offset -96
-	// 		struct VECTOR *pPosition; // $s0
+	// 		VECTOR position[5]; // stack offset -96
+	// 		VECTOR *pPosition; // $s0
 	// 		char loop; // $s1
 
 		/* begin block 1.1 */
 			// Start line: 2557
 			// Start offset: 0x00019300
 			// Variables:
-		// 		struct LINE_G2 *pLine; // $a1
+		// 		LINE_G2 *pLine; // $a1
 		/* end block 1.1 */
 		// End offset: 0x00019300
 		// End Line: 2557
@@ -2740,33 +2458,33 @@ void DrawCompass(void)
 
 /* WARNING: Could not reconcile some variable overlaps */
 
-// [D]
+// [D] [T]
 void DrawBigCompass(VECTOR *root, int angle)
 {
 	int i;
-	uint uVar3;
+	uint ang2;
 	LINE_G2 *lineg2;
-	int uVar4;
-	int uVar5;
+	int ang;
+	int ang3;
 	VECTOR *pPosition;
 	VECTOR position[5];
 
-	uVar4 = big_north[GameLevel] + angle & 0xfff;
+	ang = big_north[GameLevel] + angle & 0xfff;
 
 	position[2].vx = root->vx + map_x_offset;
 	position[2].vy = root->vz + map_z_offset;
-	position[1].vx = position[2].vx + (rcossin_tbl[uVar4 * 2] * 0x19 >> 0xc);
-	position[0].vx = position[2].vx + (rcossin_tbl[uVar4 * 2] * 0xf >> 0xb);
+	position[1].vx = position[2].vx + (rcossin_tbl[ang * 2] * 0x19 >> 0xc);
+	position[0].vx = position[2].vx + (rcossin_tbl[ang * 2] * 0xf >> 0xb);
 
-	uVar3 = uVar4 - 200 & 0xfff;
-	uVar5 = uVar4 + 200 & 0xfff;
+	ang2 = ang - 200 & 0xfff;
+	ang3 = ang + 200 & 0xfff;
 
-	position[1].vy = position[2].vy + (rcossin_tbl[uVar4 * 2 + 1] * 0x19 >> 0xc);
-	position[0].vz = position[2].vy + (rcossin_tbl[uVar4 * 2 + 1] * 0xf >> 0xb);
-	position[3].vx = position[2].vx + (rcossin_tbl[uVar3 * 2] * 5 >> 10);
-	position[3].vy = position[2].vy + (rcossin_tbl[uVar3 * 2 + 1] * 5 >> 10);
-	position[4].vx = position[2].vx + (rcossin_tbl[uVar5 * 2] * 5 >> 10);
-	position[4].vy = position[2].vy + (rcossin_tbl[uVar5 * 2 + 1] * 5 >> 10);
+	position[1].vy = position[2].vy + (rcossin_tbl[ang * 2 + 1] * 0x19 >> 0xc);
+	position[0].vz = position[2].vy + (rcossin_tbl[ang * 2 + 1] * 0xf >> 0xb);
+	position[3].vx = position[2].vx + (rcossin_tbl[ang2 * 2] * 5 >> 10);
+	position[3].vy = position[2].vy + (rcossin_tbl[ang2 * 2 + 1] * 5 >> 10);
+	position[4].vx = position[2].vx + (rcossin_tbl[ang3 * 2] * 5 >> 10);
+	position[4].vy = position[2].vy + (rcossin_tbl[ang3 * 2 + 1] * 5 >> 10);
 
 	i = 0;
 	pPosition = position + 2;
@@ -2812,7 +2530,7 @@ void DrawBigCompass(VECTOR *root, int angle)
 		// Start line: 2578
 		// Start offset: 0x000193B4
 		// Variables:
-	// 		struct POLY_F3 *tri; // $a2
+	// 		POLY_F3 *tri; // $a2
 	// 		int str2; // $fp
 	// 		void *pot; // stack offset -56
 	/* end block 1 */
@@ -2834,17 +2552,15 @@ void DrawBigCompass(VECTOR *root, int angle)
 	/* end block 4 */
 	// End Line: 6681
 
-// [D] [A] colour values might be wrong
+// [D] [T]
 void CopIndicator(int xpos, int strength)
 {
 	int str2;
 	POLY_F3 *poly;
-	int iVar5;
 
 	if (strength > 255)
 		strength = 255;
 
-	iVar5 = strength * (strength + 0x100);
 	poly = (POLY_F3 *)current->primptr;
 
 	setPolyF3(poly);
@@ -2856,12 +2572,12 @@ void CopIndicator(int xpos, int strength)
 
 	poly->g0 = str2;
 	poly->b0 = str2;
-	poly->x0 = xpos - 0xc;
-	poly->y0 = 0x100;
+	poly->x0 = xpos - 12;
+	poly->y0 = 256;
 	poly->x1 = xpos;
-	poly->y1 = 0xe2;
-	poly->x2 = xpos + 0xc;
-	poly->y2 = 0x100;
+	poly->y1 = 226;
+	poly->x2 = xpos + 12;
+	poly->y2 = 256;
 
 	addPrim(current->ot + 1, poly);
 	current->primptr += sizeof(POLY_F3);
@@ -2873,17 +2589,17 @@ void CopIndicator(int xpos, int strength)
 	setPolyF3(poly);
 	setSemiTrans(poly, 1);
 
-	str2 = (iVar5 >> 9);
+	str2 = strength * (strength + 256) >> 9;
 
 	poly->r0 = str2;
 	poly->g0 = str2;
 	poly->b0 = str2;
 
-	poly->x0 = xpos - 0xc;
-	poly->y0 = 0x100;
-	poly->y1 = 0xe2;
-	poly->x2 = xpos + 0xc;
-	poly->y2 = 0x100;
+	poly->x0 = xpos - 12;
+	poly->y0 = 256;
+	poly->y1 = 226;
+	poly->x2 = xpos + 12;
+	poly->y2 = 256;
 	poly->x1 = xpos;
 
 	addPrim(current->ot + 1, poly);
@@ -2896,14 +2612,14 @@ void CopIndicator(int xpos, int strength)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ DrawSightCone(struct COP_SIGHT_DATA *pCopSightData /*$a0*/, struct VECTOR *pPosition /*$a1*/, int direction /*$t6*/)
+// void /*$ra*/ DrawSightCone(COP_SIGHT_DATA *pCopSightData /*$a0*/, VECTOR *pPosition /*$a1*/, int direction /*$t6*/)
  // line 2609, offset 0x00019594
 	/* begin block 1 */
 		// Start line: 2610
 		// Start offset: 0x00019594
 		// Variables:
-	// 		struct VECTOR vertex[9]; // stack offset -160
-	// 		struct VECTOR *pVertex; // $t0
+	// 		VECTOR vertex[9]; // stack offset -160
+	// 		VECTOR *pVertex; // $t0
 	// 		int angle; // $a3
 	// 		int frontViewAngle; // $t1
 	// 		int negFrontViewAngle; // $a2
@@ -2932,15 +2648,15 @@ void CopIndicator(int xpos, int strength)
 			// Start line: 2643
 			// Start offset: 0x0001966C
 			// Variables:
-		// 		struct VECTOR *pVertex; // $a2
+		// 		VECTOR *pVertex; // $a2
 		// 		void *pot; // $a3
 
 			/* begin block 1.2.1 */
 				// Start line: 2651
 				// Start offset: 0x000196B8
 				// Variables:
-			// 		struct POLY_G3 *poly; // $a1
-			// 		struct VECTOR *pNextVertex; // $a0
+			// 		POLY_G3 *poly; // $a1
+			// 		VECTOR *pNextVertex; // $a0
 			/* end block 1.2.1 */
 			// End offset: 0x000196DC
 			// End Line: 2659
@@ -2963,61 +2679,59 @@ void CopIndicator(int xpos, int strength)
 
 /* WARNING: Could not reconcile some variable overlaps */
 
-// [D]
+// [D] [T]
 void DrawSightCone(COP_SIGHT_DATA *pCopSightData, VECTOR *pPosition, int direction)
 {
-	short sVar1;
-	short sVar2;
-	short sVar3;
-	short sVar4;
-	int uVar7;
+	short temp;
+	int dir;
 	VECTOR *pVVar8;
 	VECTOR *pNextVertex;
 	POLY_G3 *poly;
-	int iVar9;
-	ulong *potz;
 	VECTOR *pVertex;
-	VECTOR *pVVar10;
 	VECTOR vertex[9];
+	int angle; 
+	int frontViewAngle;
+	int frontViewDistance;
+	int surroundViewDistance;
+	
+	
+	frontViewDistance = pCopSightData->frontViewDistance;
+	surroundViewDistance = pCopSightData->surroundViewDistance;
+	frontViewAngle = pCopSightData->frontViewAngle;
 
-	
-	
-	sVar1 = pCopSightData->frontViewDistance;
-	sVar2 = pCopSightData->surroundViewDistance;
-	sVar3 = pCopSightData->frontViewAngle;
 	vertex[0].vx = pPosition->vx;
 	vertex[0].vz = pPosition->vz;
 
-	pVVar10 = vertex + 1;
-	pVertex = pVVar10;
+	pVertex = vertex + 1;
 	
-	iVar9 = 0;
+	angle = 0;
 	do {
-		if ((iVar9 <= sVar3) || (sVar4 = sVar2, 0x1000 - sVar3 <= iVar9)) 
-		{
-			sVar4 = sVar1;
-		}
 
-		uVar7 = iVar9 + direction & 0xfff;
+		if(angle > frontViewAngle && angle < 4096 - frontViewAngle)
+			temp = surroundViewDistance;
+		else
+			temp = frontViewDistance;
 
-		iVar9 = iVar9 + 0x200;
-		pVertex->vx = vertex[0].vx + FIXEDH(rcossin_tbl[uVar7 * 2] * sVar4);
-		pVertex->vz = vertex[0].vz + FIXEDH(rcossin_tbl[uVar7 * 2 + 1] * sVar4);
-		pVertex = pVertex + 1;
-	} while (iVar9 < 0x1000);
+		dir = angle + direction & 0xfff;
+
+		angle += 512;
+		pVertex->vx = vertex[0].vx + FIXEDH(rcossin_tbl[dir * 2] * temp);
+		pVertex->vz = vertex[0].vz + FIXEDH(rcossin_tbl[dir * 2 + 1] * temp);
+		
+		pVertex++;
+	
+	} while (angle < 4096);
 
 	WorldToOverheadMapPositions(vertex, vertex, 9, 0, 0);
 
-	pVertex = pVVar10;
+	pVertex = vertex + 1;
 
 	while (pVertex < &vertex[9])
 	{
-		pVVar8 = pVertex + 1;
-		
-		pNextVertex = pVVar8;
+		pNextVertex = pVertex + 1;
 
-		if (vertex + 8 < pVVar8)
-			pNextVertex = pVVar10;
+		if (pNextVertex > vertex + 8)
+			pNextVertex = vertex + 1;
 	
 		poly = (POLY_G3 *)current->primptr;
 		setPolyG3(poly);
@@ -3030,20 +2744,14 @@ void DrawSightCone(COP_SIGHT_DATA *pCopSightData, VECTOR *pPosition, int directi
 		poly->x2 = pNextVertex->vx;
 		poly->y2 = pNextVertex->vz;
 
-		poly->r0 = 96;
-		poly->g0 = 96;
-		poly->b0 = 96;
-		poly->r1 = 0;
-		poly->g1 = 0;
-		poly->b1 = 0;
-		poly->r2 = 0;
-		poly->g2 = 0;
-		poly->b2 = 0;
-		
+		poly->r0 = poly->g0 = poly->b0 = 96;
+		poly->r1 = poly->g1 = poly->b1 = 0;
+		poly->r2 = poly->g2 = poly->b2 = 0;
+
 		addPrim(current->ot, poly);
 
 		current->primptr += sizeof(POLY_G3);
-		pVertex = pVVar8;
+		pVertex++;
 	}
 
 	TransparencyOn(current->ot, 0x20);
@@ -3053,13 +2761,13 @@ void DrawSightCone(COP_SIGHT_DATA *pCopSightData, VECTOR *pPosition, int directi
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ WorldToOverheadMapPositions(struct VECTOR *pGlobalPosition /*$s1*/, struct VECTOR *pOverheadMapPosition /*$s3*/, int count /*$s2*/, char inputRelative /*$s5*/, int outputRelative /*stack 16*/)
+// void /*$ra*/ WorldToOverheadMapPositions(VECTOR *pGlobalPosition /*$s1*/, VECTOR *pOverheadMapPosition /*$s3*/, int count /*$s2*/, char inputRelative /*$s5*/, int outputRelative /*stack 16*/)
  // line 2703, offset 0x00019af0
 	/* begin block 1 */
 		// Start line: 2704
 		// Start offset: 0x00019AF0
 		// Variables:
-	// 		struct MATRIX TempMatrix; // stack offset -80
+	// 		MATRIX TempMatrix; // stack offset -80
 	// 		int sin; // $a1
 	// 		int cos; // $a2
 	// 		int angle; // $v1
@@ -3069,7 +2777,7 @@ void DrawSightCone(COP_SIGHT_DATA *pCopSightData, VECTOR *pPosition, int directi
 			// Start line: 2745
 			// Start offset: 0x00019C20
 			// Variables:
-		// 		struct SVECTOR tempVector; // stack offset -48
+		// 		SVECTOR tempVector; // stack offset -48
 		// 		long flag; // stack offset -40
 		/* end block 1.1 */
 		// End offset: 0x00019CC0
@@ -3083,7 +2791,7 @@ void DrawSightCone(COP_SIGHT_DATA *pCopSightData, VECTOR *pPosition, int directi
 	/* end block 2 */
 	// End Line: 8755
 
-// [D]
+// [D] [T]
 void WorldToOverheadMapPositions(VECTOR *pGlobalPosition, VECTOR *pOverheadMapPosition, int count, char inputRelative,int outputRelative)
 {
 	int scale;
@@ -3106,8 +2814,8 @@ void WorldToOverheadMapPositions(VECTOR *pGlobalPosition, VECTOR *pOverheadMapPo
 
 	if (outputRelative == 0)
 	{
-		tempMatrix.t[0] = 280;
-		tempMatrix.t[2] = 212;
+		tempMatrix.t[0] = gMapXOffset + MAP_SIZE_W/2;
+		tempMatrix.t[2] = gMapYOffset + MAP_SIZE_H/2;
 	}
 	else
 	{
@@ -3154,8 +2862,8 @@ void WorldToOverheadMapPositions(VECTOR *pGlobalPosition, VECTOR *pOverheadMapPo
 		// Start line: 2773
 		// Start offset: 0x00019D0C
 		// Variables:
-	// 		struct VECTOR translate; // stack offset -32
-	// 		struct SVECTOR direction; // stack offset -16
+	// 		VECTOR translate; // stack offset -32
+	// 		SVECTOR direction; // stack offset -16
 	/* end block 1 */
 	// End offset: 0x00019DE8
 	// End Line: 2787
@@ -3177,7 +2885,7 @@ void WorldToOverheadMapPositions(VECTOR *pGlobalPosition, VECTOR *pOverheadMapPo
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void SetFullscreenMapMatrix(void)
 {
 	VECTOR translate = { 160, 0, 128 };
@@ -3203,7 +2911,7 @@ void SetFullscreenMapMatrix(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ WorldToFullscreenMap(struct VECTOR *in /*$a0*/, struct VECTOR *out /*$a1*/)
+// void /*$ra*/ WorldToFullscreenMap(VECTOR *in /*$a0*/, VECTOR *out /*$a1*/)
  // line 2794, offset 0x00019de8
 	/* begin block 1 */
 		// Start line: 8983
@@ -3220,7 +2928,7 @@ void SetFullscreenMapMatrix(void)
 	/* end block 3 */
 	// End Line: 8993
 
-// [D]
+// [D] [T]
 void WorldToFullscreenMap(VECTOR *in, VECTOR *out)
 {
 	out->vy = 0;
@@ -3232,13 +2940,13 @@ void WorldToFullscreenMap(VECTOR *in, VECTOR *out)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ WorldToFullscreenMap2(struct VECTOR *in /*$a0*/, struct VECTOR *out /*$a1*/)
+// void /*$ra*/ WorldToFullscreenMap2(VECTOR *in /*$a0*/, VECTOR *out /*$a1*/)
  // line 2806, offset 0x00019e7c
 	/* begin block 1 */
 		// Start line: 2807
 		// Start offset: 0x00019E7C
 		// Variables:
-	// 		struct SVECTOR pos; // stack offset -24
+	// 		SVECTOR pos; // stack offset -24
 	// 		long flag; // stack offset -16
 	/* end block 1 */
 	// End offset: 0x00019F44
@@ -3254,7 +2962,7 @@ void WorldToFullscreenMap(VECTOR *in, VECTOR *out)
 	/* end block 3 */
 	// End Line: 9021
 
-// [D]
+// [D] [T]
 void WorldToFullscreenMap2(VECTOR *in, VECTOR *out)
 {
 	SVECTOR pos;

@@ -1,7 +1,6 @@
 #include "DRIVER2.H"
 #include "COP_AI.H"
 #include "CIV_AI.H"
-#include "AI.H"
 #include "MISSION.H"
 #include "SYSTEM.H"
 #include "FELONY.H"
@@ -14,10 +13,10 @@
 #include "MAP.H"
 #include "CAMERA.H"
 #include "HANDLING.H"
-#include "MISSION.H"
 #include "OBJCOLL.H"
 #include "WHEELFORCES.H"
 #include "PAD.H"
+#include "PEDEST.H"
 
 COP_DATA gCopData = {
 	0,
@@ -60,7 +59,7 @@ COP_SIGHT_DATA copSightData;
 int player_position_known = 0;
 VECTOR lastKnownPosition;
 VECTOR CarTail;
-_CAR_DATA *targetVehicle;
+CAR_DATA *targetVehicle;
 
 int numActiveCops = 0;
 int pathStraight = 0;
@@ -70,7 +69,7 @@ int OutOfSightCount = 0;
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ InitCopState(struct _CAR_DATA *cp /*$s0*/, char *extraData /*$a1*/)
+// void /*$ra*/ InitCopState(CAR_DATA *cp /*$s0*/, char *extraData /*$a1*/)
  // line 577, offset 0x0002f680
 	/* begin block 1 */
 		// Start line: 2675
@@ -83,7 +82,7 @@ int OutOfSightCount = 0;
 	// End Line: 1155
 
 // [D] [T]
-void InitCopState(_CAR_DATA *cp, char *extraData)
+void InitCopState(CAR_DATA *cp, char *extraData)
 {
 	ClearMem((char *)&cp->ai.p, sizeof(COP));
 
@@ -121,7 +120,7 @@ int ReplayLog_Fnarr_He_Said_Log(int val)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ WibbleDownTheRoad(struct VECTOR *from /*$a0*/, int distance /*$s1*/, struct VECTOR *to /*$s5*/)
+// void /*$ra*/ WibbleDownTheRoad(VECTOR *from /*$a0*/, int distance /*$s1*/, VECTOR *to /*$s5*/)
  // line 593, offset 0x0002d78c
 	/* begin block 1 */
 		// Start line: 594
@@ -130,15 +129,15 @@ int ReplayLog_Fnarr_He_Said_Log(int val)
 	// 		int th; // $s0
 	// 		int j; // $s3
 	// 		int thl[4]; // stack offset -136
-	// 		struct VECTOR pos; // stack offset -120
-	// 		struct VECTOR dir; // stack offset -104
+	// 		VECTOR pos; // stack offset -120
+	// 		VECTOR dir; // stack offset -104
 
 		/* begin block 1.1 */
 			// Start line: 604
 			// Start offset: 0x0002D810
 			// Variables:
-		// 		struct VECTOR p2; // stack offset -88
-		// 		struct VECTOR d2; // stack offset -72
+		// 		VECTOR p2; // stack offset -88
+		// 		VECTOR d2; // stack offset -72
 		// 		int colour[3]; // stack offset -56
 		/* end block 1.1 */
 		// End offset: 0x0002D89C
@@ -264,8 +263,8 @@ void InitCops(void)
 
 	felonyData.pursuitFelonyScale = 3000;
 
-	gCopDesiredSpeedScale = 0x1000;
-	gCopMaxPowerScale = 0x1000;
+	gCopDesiredSpeedScale = 4096;
+	gCopMaxPowerScale = 4096;
 	gPuppyDogCop = 0;
 
 	copsAreInPursuit = 0;
@@ -419,7 +418,12 @@ void ControlCops(void)
 	}
 #endif
 
-	gCopData.autoBatterPlayerTrigger = 0x800;
+	if (player[0].playerCarId < 0)
+		playerFelony = &pedestrianFelony;
+	else 
+		playerFelony = &car_data[player[0].playerCarId].felonyRating;
+
+	gCopData.autoBatterPlayerTrigger = 2048;
 
 	if (CopsAllowed == 0 || gInGameCutsceneActive != 0) 
 	{
@@ -432,6 +436,8 @@ void ControlCops(void)
 	{
 		if (player[0].playerCarId > -1) 
 			targetVehicle = &car_data[player[0].playerCarId];
+		else
+			targetVehicle = &car_data[TANNER_COLLIDER_CARID];	// [A] fix bug of chasing car
 
 		if (player_position_known > 0)
 		{
@@ -447,13 +453,8 @@ void ControlCops(void)
 		heading = LastHeading;
 
 		// play the phrases about direction
-		if (first_offence == 0 && CopsCanSeePlayer != 0 && numActiveCops != 0) 
+		if (first_offence == 0 && CopsCanSeePlayer && numActiveCops != 0) 
 		{
-			if (player[0].playerCarId < 0) 
-				playerFelony = &pedestrianFelony;
-			else
-				playerFelony = &car_data[player[0].playerCarId].felonyRating;
-
 			if (*playerFelony > 658 && TimeSinceLastSpeech > 720 && targetVehicle->hd.speed > 20)
 			{
 				int rnd;
@@ -468,7 +469,7 @@ void ControlCops(void)
 					else
 						phrase = rnd % 3;
 
-					phrase = rnd + phrase;
+					//phrase = rnd + phrase;
 
 					if (first_offence == 0 && last_cop_phrase != phrase && TimeSinceLastSpeech > 720)
 					{
@@ -489,14 +490,6 @@ void ControlCops(void)
 
 		LastHeading = heading;
 
-		if (player[0].playerCarId < 0)
-			playerFelony = &pedestrianFelony;
-		else 
-			playerFelony = &car_data[(int)player[0].playerCarId].felonyRating;
-
-		if (gCopData.autoBatterPlayerTrigger <= *playerFelony)
-			gBatterPlayer = 1;
-
 		ControlCopDetection();
 
 		AdjustFelony(&felonyData);
@@ -505,17 +498,14 @@ void ControlCops(void)
 
 		copsWereInPursuit = 0;
 
-		if (player_position_known > 0) 
+		if (CopsCanSeePlayer && OutOfSightCount < 256 ||	// [A] was player_position_known. Resolves speech in some missions
+			player_position_known > 1 && GameType == GAME_GETAWAY) 
 		{
-			if (player[0].playerCarId < 0)
-				playerFelony = &pedestrianFelony;
-			else
-				playerFelony = &car_data[player[0].playerCarId].felonyRating;
-
 			if (*playerFelony > FELONY_MIN_VALUE)
 				copsWereInPursuit = 1;
 		}
 
+		// start pursuit
 		if (copsWereInPursuit != 0) 
 		{
 			if (copsAreInPursuit == 0) 
@@ -542,7 +532,7 @@ void ControlCops(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ CopControl(struct _CAR_DATA *cp /*$s1*/)
+// void /*$ra*/ CopControl(CAR_DATA *cp /*$s1*/)
  // line 824, offset 0x0002f60c
 	/* begin block 1 */
 		// Start line: 825
@@ -562,7 +552,7 @@ void ControlCops(void)
 	// End Line: 1649
 
 // [D] [T]
-void CopControl(_CAR_DATA *cp)
+void CopControl(CAR_DATA *cp)
 {
 	CopControl1(cp);
 
@@ -579,7 +569,7 @@ void CopControl(_CAR_DATA *cp)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ CopControl1(struct _CAR_DATA *cp /*$s1*/)
+// void /*$ra*/ CopControl1(CAR_DATA *cp /*$s1*/)
  // line 845, offset 0x0002defc
 	/* begin block 1 */
 		// Start line: 846
@@ -609,7 +599,7 @@ void CopControl(_CAR_DATA *cp)
 			// Start line: 912
 			// Start offset: 0x0002E070
 			// Variables:
-		// 		struct VECTOR pos; // stack offset -88
+		// 		VECTOR pos; // stack offset -88
 		/* end block 1.2 */
 		// End offset: 0x0002E23C
 		// End Line: 922
@@ -618,8 +608,8 @@ void CopControl(_CAR_DATA *cp)
 			// Start line: 935
 			// Start offset: 0x0002E23C
 			// Variables:
-		// 		enum AIZone targetZone; // $a0
-		// 		struct VECTOR doordir; // stack offset -72
+		// 		AIZone targetZone; // $a0
+		// 		VECTOR doordir; // stack offset -72
 		// 		int targetFound; // $a1
 		// 		int cx; // $s5
 		// 		int cz; // $s6
@@ -643,7 +633,7 @@ void CopControl(_CAR_DATA *cp)
 				// Start line: 1049
 				// Start offset: 0x0002E5E4
 				// Variables:
-			// 		struct iVectNT path[2]; // stack offset -56
+			// 		iVectNT path[2]; // stack offset -56
 			// 		int slidevel; // $a3
 
 				/* begin block 1.3.2.1 */
@@ -708,7 +698,7 @@ void CopControl(_CAR_DATA *cp)
 VECTOR targetPoint = { 0,0,0 };
 
 // [D]
-void CopControl1(_CAR_DATA *cp)
+void CopControl1(CAR_DATA *cp)
 {
 	int targetFound;
 	int steeringFac;
@@ -726,9 +716,15 @@ void CopControl1(_CAR_DATA *cp)
 	int slidevel;
 	int maxPower;
 	int speedDif;
+	int doBatter;
 	VECTOR pos;
 	iVectNT path[2];
 	AIZone targetZone;
+
+	if (player[0].playerCarId < 0)
+		playerFelony = &pedestrianFelony;
+	else
+		playerFelony = &car_data[player[0].playerCarId].felonyRating;
 
 	desiredSteerAngle = 0;
 
@@ -742,6 +738,34 @@ void CopControl1(_CAR_DATA *cp)
 
 		return;
 	}
+
+	// [A] new cop batter logic
+	// survival setting really
+	if(gBatterPlayer)
+		doBatter = 1;
+	else
+		doBatter = 0;
+
+	// [A] periodically beat player in ass
+	if (!doBatter && *playerFelony > gCopData.autoBatterPlayerTrigger)
+	{
+		int batterTrigger;
+
+		if(gCopDifficultyLevel == 0)
+			batterTrigger = 80;
+		else if (gCopDifficultyLevel == 1)
+			batterTrigger = 50;
+		else if (gCopDifficultyLevel == 2)
+			batterTrigger = 0;
+
+		if (cp->ai.p.batterTimer > batterTrigger)
+			doBatter = 1;
+		
+		cp->ai.p.batterTimer++;
+		cp->ai.p.batterTimer &= 127;
+	}
+
+
 
 	if (cp->ai.p.dying != 0 || 
 		cp->totalDamage > 27000 && gCopData.immortal == 0)
@@ -870,7 +894,7 @@ void CopControl1(_CAR_DATA *cp)
 			
 			dd = (dx * idvx - dz * idvz) / (idvx * idvx + idvz * idvz + 1);
 
-			if (gBatterPlayer == 0) 
+			if (doBatter == 0)
 				dd = dd * 3 / 4;
 
 			if (dd < 0)
@@ -881,7 +905,7 @@ void CopControl1(_CAR_DATA *cp)
 			dvz = targetVehicle->hd.where.t[0] + FIXEDH(targetVehicle->st.n.linearVelocity[0] * dd);
 			dvx = targetVehicle->hd.where.t[2] + FIXEDH(targetVehicle->st.n.linearVelocity[2] * dd);
 
-			if (gBatterPlayer == 0)
+			if (doBatter == 0)
 			{
 				CarTail.vx = dvz - (targetVehicle->hd.where.m[0][2] * 5 >> 7);
 				CarTail.vz = dvx - (targetVehicle->hd.where.m[2][2] * 5 >> 7);
@@ -982,11 +1006,6 @@ void CopControl1(_CAR_DATA *cp)
 			else
 				cp->ai.p.desiredSpeed = speed2[gCopDifficultyLevel];
 
-			if (player[0].playerCarId < 0)
-				playerFelony = &pedestrianFelony;
-			else
-				playerFelony = &car_data[player[0].playerCarId].felonyRating;
-
 			if (gCopData.cutOffDistance < cp->ai.p.DistanceToPlayer)
 				maxPower = gCopData.cutOffPowerScale;
 			else
@@ -994,7 +1013,7 @@ void CopControl1(_CAR_DATA *cp)
 
 			cp->ai.p.desiredSpeed = FIXEDH(cp->ai.p.desiredSpeed * (maxPower + FIXEDH(*playerFelony * gCopData.autoDesiredSpeedScaleLimit)));
 
-			if (gPuppyDogCop != 0 && cp->ai.p.close_pursuit != 0)
+			if ((gPuppyDogCop || player[0].playerType == 2) && cp->ai.p.close_pursuit)
 			{
 				plcrspd = targetVehicle->hd.speed + 10;
 				
@@ -1047,7 +1066,7 @@ void CopControl1(_CAR_DATA *cp)
 	}
 
 	// calculate the desired speed
-	if (dist < 4096 && cp->ai.p.desiredSpeed > 0 && gBatterPlayer == 0)
+	if (dist < 4096 && cp->ai.p.desiredSpeed > 0 && doBatter == 0)
 	{
 		plcrspd = targetVehicle->hd.speed - 20;
 
@@ -1058,11 +1077,11 @@ void CopControl1(_CAR_DATA *cp)
 	}
 
 	// calculate acceleration
-	maxPower = steeringFac = (gCopDifficultyLevel + 8) * 0x400;
+	maxPower = steeringFac = (gCopDifficultyLevel + 8) * 1024;
 	currentSpeed = cp->ai.p.desiredSpeed - currentSpeed;
 
 	if (pathStraight != 0)
-		maxPower += (gCopDifficultyLevel + 4) * 0x400;
+		maxPower += (gCopDifficultyLevel + 4) * 1024;
 
 	if (player[0].playerCarId < 0)
 		playerFelony = &pedestrianFelony;
@@ -1099,7 +1118,7 @@ void CopControl1(_CAR_DATA *cp)
 	if (cp->ai.p.justPinged == 1)
 	{
 		cp->hd.direction = getHeadingToPlayer(cp->hd.where.t[0], cp->hd.where.t[1], cp->hd.where.t[2]);
-		TempBuildHandlingMatrix((_CAR_DATA*)cp, 0);
+		TempBuildHandlingMatrix((CAR_DATA*)cp, 0);
 
 		cp->ai.p.justPinged = 0;
 	}
@@ -1181,7 +1200,7 @@ int FindCost(int x, int z, int dvx, int dvz)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ InitCopData(struct COP_DATA *pCopData /*$a0*/)
+// void /*$ra*/ InitCopData(COP_DATA *pCopData /*$a0*/)
  // line 1267, offset 0x0002f7f8
 	/* begin block 1 */
 		// Start line: 1268
@@ -1296,11 +1315,11 @@ void UpdateCopSightData(void)
 		// Variables:
 	// 		int dx; // $v1
 	// 		int dz; // $a0
-	// 		struct VECTOR vec; // stack offset -64
+	// 		VECTOR vec; // stack offset -64
 	// 		int ccx; // stack offset -32
 	// 		int ccz; // stack offset -28
 	// 		char *scratch; // $s4
-	// 		struct _CAR_DATA *lcp; // $s1
+	// 		CAR_DATA *lcp; // $s1
 
 		/* begin block 1.1 */
 			// Start line: 1385
@@ -1339,7 +1358,7 @@ void UpdateCopSightData(void)
 				// Start line: 1369
 				// Start offset: 0x0002EF70
 				// Variables:
-			// 		struct _CAR_DATA *cp; // $s1
+			// 		CAR_DATA *cp; // $s1
 			// 		int distanceToPlayer; // $s0
 
 				/* begin block 1.3.1.1 */
@@ -1355,7 +1374,7 @@ void UpdateCopSightData(void)
 						// Start offset: 0x0002EF90
 						// Variables:
 					// 		int theta; // $v1
-					// 		struct VECTOR delta; // stack offset -48
+					// 		VECTOR delta; // stack offset -48
 
 						/* begin block 1.3.1.1.1.1 */
 							// Start line: 1369
@@ -1446,38 +1465,22 @@ void UpdateCopSightData(void)
 void ControlCopDetection(void)
 {
 	bool spotted;
-	int dz;
-	short *playerFelony;
-	long distanceToPlayer;
+	uint distanceToPlayer;
+	uint minDistanceToPlayer;
 	int heading;
-	int dx;
-	_CAR_DATA *cp;
+	int dx, dz;
+	CAR_DATA *cp;
 	VECTOR vec;
 	int ccx;
 	int ccz;
 
 	vec.vx = player[0].pos[0];
+	vec.vy = player[0].pos[1];
 	vec.vz = player[0].pos[2];
 
 	GetVisSetAtPosition(&vec, CopWorkMem, &ccx, &ccz);
 
-	if (player[0].playerCarId < 0)
-		playerFelony = &pedestrianFelony;
-	else 
-		playerFelony = &car_data[player[0].playerCarId].felonyRating;
-
-	if (*playerFelony > FELONY_MIN_VALUE)
-	{
-		copSightData.surroundViewDistance = 5440;
-		copSightData.frontViewDistance = 16320;
-		copSightData.frontViewAngle = 1024;
-	}
-	else
-	{
-		copSightData.surroundViewDistance = 2720;
-		copSightData.frontViewDistance = 7820;
-		copSightData.frontViewAngle = 512;
-	}
+	UpdateCopSightData();
 
 	if (player_position_known < 1) 
 		player_position_known = 1;
@@ -1486,78 +1489,97 @@ void ControlCopDetection(void)
 
 	CopsCanSeePlayer = 0;
 
-	// if player is not on foot - check his visibility
-	if (player[0].playerType != 2 && 
-		player[0].playerCarId > -1)
+	minDistanceToPlayer = 0xFFFFFFFF;
+
+	// check roadblock visibility
+	if (numRoadblockCars != 0)
 	{
-		if (numRoadblockCars != 0)
-		{
-			dx = ABS(roadblockLoc.vx - vec.vx);
-			dz = ABS(roadblockLoc.vz - vec.vz);
+		dx = ABS(roadblockLoc.vx - vec.vx) >> 8;
+		dz = ABS(roadblockLoc.vz - vec.vz) >> 8;
 
-			if (((dx >> 8) * (dx >> 8) + (dz >> 8) * (dz >> 8) < 1640) &&
-				newPositionVisible(&roadblockLoc, CopWorkMem, ccx, ccz) != 0)
-				CopsCanSeePlayer = 1;
+		distanceToPlayer = dx * dx + dz * dz;
+		
+		if (distanceToPlayer < 1640 &&
+			newPositionVisible(&roadblockLoc, CopWorkMem, ccx, ccz) != 0)
+		{
+			CopsCanSeePlayer = 1;
+
+			if (distanceToPlayer << 8 < minDistanceToPlayer)
+				minDistanceToPlayer = distanceToPlayer << 6;
 		}
+	}
 
-		if (CopsCanSeePlayer == 0) 
+	if (CopsCanSeePlayer == 0 && !((gCurrentMissionNumber == 30 || gCurrentMissionNumber == 24) && CameraCnt-frameStart < 100)) 
+	{
+		cp = &car_data[MAX_CARS-1];
+
+		while (car_data <= cp)
 		{
-			cp = &car_data[MAX_CARS-1];
-
-			while (car_data <= cp)
+			if (cp->controlType == CONTROL_TYPE_PURSUER_AI && cp->ai.p.dying == 0 || 
+				(cp->controlFlags & CONTROL_FLAG_COP))
 			{
-				if (cp->controlType == 3 && cp->ai.p.dying == 0 || cp->controlFlags & CONTROL_FLAG_COP)
+				dx = ABS(cp->hd.where.t[0] - vec.vx) >> 8;
+				dz = ABS(cp->hd.where.t[2] - vec.vz) >> 8;
+
+				distanceToPlayer = SquareRoot0(dx * dx + dz * dz) << 8;
+
+				if (distanceToPlayer < minDistanceToPlayer)
+					minDistanceToPlayer = distanceToPlayer;
+
+				if (cp->controlType == CONTROL_TYPE_PURSUER_AI)
 				{
-					dx = ABS(cp->hd.where.t[0] - vec.vx);
-					dz = ABS(cp->hd.where.t[2] - vec.vz);
+					cp->ai.p.DistanceToPlayer = distanceToPlayer;
 
-					distanceToPlayer = SquareRoot0(dx * dx + dz * dz);
-
-					if (cp->controlType == 3)
+					if(cp->ai.p.close_pursuit != 0)
 					{
-						cp->ai.p.DistanceToPlayer = distanceToPlayer;
-
-						if(cp->ai.p.close_pursuit != 0)
-						{
-							CopsCanSeePlayer = 1;
-							break;
-						}
+						CopsCanSeePlayer = 1;
+						break;
 					}
+				}
 
-					if (newPositionVisible(&vec, CopWorkMem, ccx, ccz) != 0)
+				if (newPositionVisible(&vec, CopWorkMem, ccx, ccz) != 0)
+				{
+					spotted = false;
+					
+					if (distanceToPlayer < copSightData.surroundViewDistance) 
 					{
-						spotted = false;
-						
-						if (distanceToPlayer < copSightData.surroundViewDistance) 
+						spotted = true;
+					}
+					else if (distanceToPlayer < copSightData.frontViewDistance)
+					{
+						int theta;
+
+						dz = vec.vx - cp->hd.where.t[0];
+						dx = vec.vz - cp->hd.where.t[2];
+
+						theta = ABS(ratan2(dz, dx) - cp->hd.direction);
+
+						if (theta < copSightData.frontViewAngle || 
+							theta < copSightData.frontViewAngle + 512)
 						{
 							spotted = true;
 						}
-						else if (distanceToPlayer < copSightData.frontViewDistance)
-						{
-							int theta;
+					}
 
-							dz = vec.vx - cp->hd.where.t[0];
-							dx = vec.vz - cp->hd.where.t[2];
-
-							theta = ABS(ratan2(dz, dx) - cp->hd.direction);
-
-							if (theta < copSightData.frontViewAngle || 
-								theta < copSightData.frontViewAngle + 512)
-							{
-								spotted = true;
-							}
-						}
-						
-						if (spotted) 
-						{
-							CopsCanSeePlayer = 1;
-							break;
-						}
+					// [A] also check player elevation from cops (block cops vision from bridges, tunnels etc)
+					if (spotted && ABS(cp->hd.where.t[1] - vec.vy) < 1500) 
+					{
+						CopsCanSeePlayer = 1;
+						break;
 					}
 				}
-				cp--;
 			}
+			cp--;
 		}
+	}
+
+	// [A] if Tanner is outside car, cops can arrest him if they are too close
+	if(player[0].playerType == 2 && minDistanceToPlayer < 2048 && !player[0].dying && pedestrianFelony > FELONY_MIN_VALUE)
+	{
+		player[0].dying = 1;
+		
+		SetMissionMessage("You've been caught.",3,2);
+		SetMissionFailed(FAILED_MESSAGESET);
 	}
 
 	if (numActiveCops == 0 && OutOfSightCount < 256 && CameraCnt > 8) 
@@ -1577,12 +1599,7 @@ void ControlCopDetection(void)
 			player_position_known = -1;
 			OutOfSightCount = 257;
 
-			if (player[0].playerCarId < 0)
-				playerFelony = &pedestrianFelony;
-			else
-				playerFelony = &car_data[player[0].playerCarId].felonyRating;
-
-			if (*playerFelony > FELONY_MIN_VALUE && first_offence == 0)
+			if (first_offence == 0)
 			{
 				CopSay(12, 0);
 				FunkUpDaBGMTunez(0);
@@ -1609,7 +1626,7 @@ void ControlCopDetection(void)
 				vec.vz = cp->hd.where.t[2];
 
 				// make cop lose target if target is hidden
-				if (newPositionVisible(&vec, CopWorkMem, ccx, ccz) == 0 && cp->ai.p.hiddenTimer++ > 0x32)
+				if (newPositionVisible(&vec, CopWorkMem, ccx, ccz) == 0 && cp->ai.p.hiddenTimer++ > 50)
 				{
 					cp->controlType = CONTROL_TYPE_NONE;
 					cp->ai.p.hiddenTimer = 0;
@@ -1656,7 +1673,7 @@ void ControlCopDetection(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ PassiveCopTasks(struct _CAR_DATA *cp /*$s0*/)
+// void /*$ra*/ PassiveCopTasks(CAR_DATA *cp /*$s0*/)
  // line 1562, offset 0x0002f6fc
 	/* begin block 1 */
 		// Start line: 1563
@@ -1666,7 +1683,7 @@ void ControlCopDetection(void)
 			// Start line: 1563
 			// Start offset: 0x0002F76C
 			// Variables:
-		// 		struct _CAR_DATA *cp; // $s0
+		// 		CAR_DATA *cp; // $s0
 		/* end block 1.1 */
 		// End offset: 0x0002F7C4
 		// End Line: 1563
@@ -1685,7 +1702,7 @@ void ControlCopDetection(void)
 	// End Line: 4655
 
 // [D] [T]
-void PassiveCopTasks(_CAR_DATA *cp)
+void PassiveCopTasks(CAR_DATA *cp)
 {
 	short *playerFelony;
 
@@ -1697,24 +1714,11 @@ void PassiveCopTasks(_CAR_DATA *cp)
 	if (*playerFelony <= FELONY_MIN_VALUE)
 		return;
 
+	// [A] make an ambush on player in Destroy the yard
 	if (player_position_known < 1)
 		return;
 
-	ClearMem((char *)&cp->ai.p, sizeof(COP));
-
-	cp->controlType = CONTROL_TYPE_PURSUER_AI;
-	cp->controlFlags = 0;
-
-	cp->ai.p.justPinged = 1;
-
-	if (gCopDifficultyLevel == 2)
-		cp->hndType = 4;
-	else if (gCopDifficultyLevel == 1) 
-		cp->hndType = 3;
-	else if (gCopDifficultyLevel == 0)
-		cp->hndType = 2;
-	else
-		cp->hndType = 4;
+	InitCopState(cp, NULL);
 
 	cp->ai.p.justPinged = 0;
 	numCivCars--;
@@ -1762,7 +1766,7 @@ void PassiveCopTasks(_CAR_DATA *cp)
 				// Start line: 1638
 				// Start offset: 0x0002F580
 				// Variables:
-			// 		struct _CAR_DATA *lcp; // $a0
+			// 		CAR_DATA *lcp; // $a0
 			// 		int tempDist; // $a3
 
 				/* begin block 1.3.1.1 */
@@ -1811,7 +1815,7 @@ void ControlNumberOfCops(void)
 	short *pTrigger;
 	short *playerFelony;
 	int tempDist;
-	_CAR_DATA *lcp;
+	CAR_DATA *lcp;
 	int respawnTime;
 	int num_closer;
 	int cutOffDistance;

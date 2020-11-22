@@ -2,16 +2,21 @@
 //
 
 #include "DRIVER2.H"
-#include "GAME/C/MAIN.H"
-#include "GAME/C/SYSTEM.H"
-#include "GAME/C/GLAUNCH.H"
-#include "GAME/C/PLAYERS.H"
+#include "C/MAIN.H"
+#include "C/SYSTEM.H"
+#include "C/GAMESND.H"
 
 #include "EMULATOR.H"
 #include "EMULATOR_PRIVATE.H"
 #include "utils/ini.h"
 
 #include <SDL_scancode.h>
+
+#include "C/CUTSCENE.H"
+#include "C/GLAUNCH.H"
+#include "C/OVERLAY.H"
+#include "C/PLAYERS.H"
+
 
 // eq engine console output
 typedef enum
@@ -26,9 +31,6 @@ typedef enum
 
 #ifdef _WIN32
 #include <Windows.h>
-#include <conio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 static unsigned short g_InitialColor = 0xFFFF;
 static unsigned short g_LastColor = 0xFFFF;
@@ -354,7 +356,7 @@ void GameDebugKeys(int nKey, bool down)
 
 #ifndef USE_CRT_MALLOC
 char g_Overlay_buffer[0x50000];		// 0x1C0000
-char g_Frontend_buffer[0x50000];	// 0xFB400
+char g_Frontend_buffer[0x60000];	// 0xFB400
 char g_Other_buffer[0x50000];		// 0xF3000
 char g_Other_buffer2[0x50000];		// 0xE7000
 OTTYPE g_OT1[OTSIZE];				// 0xF3000
@@ -370,7 +372,7 @@ int main(int argc, char** argv)
 
 #ifdef USE_CRT_MALLOC
 	_overlay_buffer = (char*)malloc(0x50000);			// 0x1C0000
-	_frontend_buffer = (char*)malloc(0x50000);			// 0xFB400
+	_frontend_buffer = (char*)malloc(0x60000);			// 0xFB400
 	_other_buffer = (char*)malloc(0x50000);				// 0xF3000
 	_other_buffer2 = (char*)malloc(0x50000);			// 0xE7000
 	_OT1 = (OTTYPE*)malloc(OTSIZE * sizeof(OTTYPE));	// 0xF3000
@@ -405,17 +407,27 @@ int main(int argc, char** argv)
 	int fullScreen = 0;
 	int enableFreecamera = 0;
 	extern int g_pgxpTextureCorrection;
+	extern int g_pgxpZBuffer;
+	extern int g_bilinearFiltering;
 
 	if (config)
 	{
 		const char* dataFolderStr = ini_get(config, "fs", "dataFolder");
+		const char* userReplaysStr = ini_get(config, "game", "userChases");
+
+		InitUserReplays(userReplaysStr);
 		
 		ini_sget(config, "render", "windowWidth", "%d", &windowWidth);
 		ini_sget(config, "render", "windowHeight", "%d", &windowHeight);
 		ini_sget(config, "render", "fullscreen", "%d", &fullScreen);
 		ini_sget(config, "render", "pgxpTextureMapping", "%d", &g_pgxpTextureCorrection);
+		ini_sget(config, "render", "pgxpZbuffer", "%d", &g_pgxpZBuffer);
+		ini_sget(config, "render", "bilinearFiltering", "%d", &g_bilinearFiltering);
 		ini_sget(config, "game", "drawDistance", "%d", &gDrawDistance);
 		ini_sget(config, "game", "freeCamera", "%d", &enableFreecamera);
+		ini_sget(config, "game", "driver1music", "%d", &gDriver1Music);
+		ini_sget(config, "game", "widescreenOverlays", "%d", &gWidescreenOverlayAlign);
+		
 
 		if (dataFolderStr)
 		{
@@ -465,7 +477,7 @@ int main(int argc, char** argv)
 
 	
 
-	Emulator_Initialise("DRIVER2", windowWidth, windowHeight, fullScreen);
+	Emulator_Initialise("REDRIVER2", windowWidth, windowHeight, fullScreen);
 	redriver2_main(argc, argv);
 
 	Emulator_ShutDown();

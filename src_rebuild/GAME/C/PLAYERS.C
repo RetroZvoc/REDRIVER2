@@ -15,7 +15,7 @@
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ InitPlayer(struct _PLAYER *locPlayer /*$s1*/, struct _CAR_DATA *cp /*$s2*/, char carCtrlType /*$s3*/, int direction /*$s6*/, long (*startPos)[4] /*stack 16*/, int externModel /*stack 20*/, int palette /*stack 24*/, char *padid /*stack 28*/)
+// void /*$ra*/ InitPlayer(PLAYER *locPlayer /*$s1*/, CAR_DATA *cp /*$s2*/, char carCtrlType /*$s3*/, int direction /*$s6*/, LONGVECTOR* startPos /*stack 16*/, int externModel /*stack 20*/, int palette /*stack 24*/, char *padid /*stack 28*/)
  // line 75, offset 0x000739d8
 	/* begin block 1 */
 		// Start line: 76
@@ -35,16 +35,16 @@
 	// End Line: 151
 
 PEDESTRIAN *pPlayerPed = NULL;
-_PLAYER player[8];
+PLAYER player[8];
 
 // [D] [T]
-void InitPlayer(_PLAYER *locPlayer, _CAR_DATA *cp, char carCtrlType, int direction, long(*startPos)[4], int externModel, int palette, char *padid)
+void InitPlayer(PLAYER *locPlayer, CAR_DATA *cp, char carCtrlType, int direction, LONGVECTOR* startPos, int externModel, int palette, char *padid)
 {
 	int model;
 	uint playerType;
 
 	playerType = externModel & 0xFF;
-	ClearMem((char *)locPlayer, sizeof(_PLAYER));
+	ClearMem((char *)locPlayer, sizeof(PLAYER));
 
 	if (gStartOnFoot == 0 || carCtrlType == 4)
 	{
@@ -115,7 +115,7 @@ void InitPlayer(_PLAYER *locPlayer, _CAR_DATA *cp, char carCtrlType, int directi
 		// Start line: 131
 		// Start offset: 0x00073334
 		// Variables:
-	// 		struct _CAR_DATA *lcp; // $s2
+	// 		CAR_DATA *lcp; // $s2
 	/* end block 1 */
 	// End offset: 0x0007350C
 	// End Line: 181
@@ -128,7 +128,7 @@ void InitPlayer(_PLAYER *locPlayer, _CAR_DATA *cp, char carCtrlType, int directi
 // [D] [T]
 void ChangeCarPlayerToPed(int playerID)
 {
-	_CAR_DATA *lcp = &car_data[player[playerID].playerCarId];
+	CAR_DATA *lcp = &car_data[player[playerID].playerCarId];
 
 	//my_sly_var = playerID;
 	player[playerID].headTimer = 0;
@@ -165,7 +165,7 @@ void ChangeCarPlayerToPed(int playerID)
 	StopChannel(player[playerID].wheelnoise.chan);
 	UnlockChannel(player[playerID].wheelnoise.chan);
 
-	Start3DSoundVolPitch(-1, 6, 3, lcp->hd.where.t[0], lcp->hd.where.t[1], lcp->hd.where.t[2], 0, 0x1000);
+	Start3DSoundVolPitch(-1, SOUND_BANK_TANNER, 3, lcp->hd.where.t[0], lcp->hd.where.t[1], lcp->hd.where.t[2], 0, 0x1000);
 
 	first_offence = 1;
 
@@ -177,13 +177,13 @@ void ChangeCarPlayerToPed(int playerID)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ ChangePedPlayerToCar(int playerID /*$s4*/, struct _CAR_DATA *newCar /*$s2*/)
+// void /*$ra*/ ChangePedPlayerToCar(int playerID /*$s4*/, CAR_DATA *newCar /*$s2*/)
  // line 184, offset 0x0007350c
 	/* begin block 1 */
 		// Start line: 185
 		// Start offset: 0x0007350C
 		// Variables:
-	// 		struct _PLAYER *lPlayer; // $s1
+	// 		PLAYER *lPlayer; // $s1
 	// 		int siren; // $s5
 	// 		long *pos; // $s3
 	// 		int carParked; // $s6
@@ -209,18 +209,13 @@ void ChangeCarPlayerToPed(int playerID)
 extern int lastCarCameraView;
 
 // [D] [T]
-void ChangePedPlayerToCar(int playerID, _CAR_DATA *newCar)
+void ChangePedPlayerToCar(int playerID, CAR_DATA *newCar)
 {
 	int carParked;
-	int siren;
-	int channel;
-	int carSampleId;
 
-	_PLAYER* lPlayer;
+	PLAYER* lPlayer;
 
 	lPlayer = &player[playerID];
-
-	siren = CarHasSiren(newCar->ap.model);
 
 	if (newCar->controlType == CONTROL_TYPE_CIV_AI && 
 		newCar->ai.c.thrustState == 3 && (newCar->ai.c.ctrlState == 7 || newCar->ai.c.ctrlState == 5) || 
@@ -255,7 +250,6 @@ void ChangePedPlayerToCar(int playerID, _CAR_DATA *newCar)
 	lPlayer->headTimer = 0;
 	lPlayer->pPed = NULL;
 
-
 	newCar->controlType = CONTROL_TYPE_PLAYER;
 	newCar->ai.padid = &lPlayer->padid;
 	newCar->hndType = 0;
@@ -274,33 +268,20 @@ void ChangePedPlayerToCar(int playerID, _CAR_DATA *newCar)
 	}
 
 	// door close sound
-	Start3DSoundVolPitch(-1, 6, 3, newCar->hd.where.t[0], newCar->hd.where.t[1], newCar->hd.where.t[2], 0, 0x1000);
+	Start3DSoundVolPitch(-1, SOUND_BANK_TANNER, 3, newCar->hd.where.t[0], newCar->hd.where.t[1], newCar->hd.where.t[2], 0, 0x1000);
 
-	if (newCar->ap.model == 4)
-		carSampleId = ResidentModelsBodge();
-	else if (newCar->ap.model < 3)
-		carSampleId = newCar->ap.model;
-	else
-		carSampleId = newCar->ap.model - 1;
-
-	// start idle sound
-	channel = playerID == 0 ? 1 : 4;	
-	Start3DSoundVolPitch(channel, 3, carSampleId * 3 + 1, newCar->hd.where.t[0], newCar->hd.where.t[1], newCar->hd.where.t[2], -10000, 0x1000);
-
-	// rev sound
-	channel = playerID == 0 ? 0 : 3;	
-	Start3DSoundVolPitch(channel, 3, carSampleId * 3, newCar->hd.where.t[0], newCar->hd.where.t[1], newCar->hd.where.t[2], -10000, 0x1000);
-
-	if (siren != 0) 
-	{
-		channel = playerID == 0 ? 2 : 5;
-		Start3DSoundVolPitch(channel, (siren & 0xff00) >> 8, siren & 0xff, newCar->hd.where.t[0], newCar->hd.where.t[1], newCar->hd.where.t[2], -10000, 129);
-	}
+	StartPlayerCarSounds(playerID, newCar->ap.model, (VECTOR*)newCar->hd.where.t);
 
 	if (carParked)
 		RequestSlightPauseBeforeCarSoundStarts(playerID);
 	else
 		HaveCarSoundStraightAway(playerID);
+
+	// [A] carry over felony from Tanner to car if cops see player. Force in Destroy the yard
+	if(CopsCanSeePlayer || gCurrentMissionNumber == 30)
+		newCar->felonyRating = pedestrianFelony;
+	else
+		pedestrianFelony = 0;
 }
 
 
@@ -313,8 +294,8 @@ void ChangePedPlayerToCar(int playerID, _CAR_DATA *newCar)
 		// Start line: 249
 		// Start offset: 0x00073898
 		// Variables:
-	// 		struct _PLAYER *locPlayer; // $t0
-	// 		struct _CAR_DATA *cp; // $v1
+	// 		PLAYER *locPlayer; // $t0
+	// 		CAR_DATA *cp; // $v1
 	/* end block 1 */
 	// End offset: 0x000739D8
 	// End Line: 286
@@ -346,10 +327,11 @@ void UpdatePlayers(void)
 {
 	int carId;
 	PEDESTRIAN *ped;
-	_PLAYER *locPlayer;
-	_CAR_DATA* cp;
+	PLAYER *locPlayer;
+	CAR_DATA* cp;
 
-	pedestrianFelony = 0;
+	if(CopsAllowed == 0)
+		pedestrianFelony = 0;
 
 	locPlayer = player;
 

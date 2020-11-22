@@ -39,7 +39,7 @@ extern void SetChannelPitch(int channel, int pitch); // 0x00079504
 
 extern void SetChannelVolume(int channel, int volume, int proximity); // 0x0007AA78
 
-extern void ComputeDoppler(struct CHANNEL_DATA *ch); // 0x000795C4
+extern void ComputeDoppler(CHANNEL_DATA *ch); // 0x000795C4
 
 extern void SetChannelPosition3(int channel, VECTOR *position, long *velocity, int volume, int pitch, int proximity); // 0x0007ABCC
 
@@ -79,7 +79,7 @@ extern void StopXM(); // 0x0007B050
 
 extern void SetXMVolume(int volume); // 0x0007B074
 
-extern int GetFreeChannel(); // 0x00079E04
+extern int GetFreeChannel(int force = 1); // 0x00079E04
 
 extern void UpdateVolumeAttributesS(int channel, int proximity); // 0x00079F38
 

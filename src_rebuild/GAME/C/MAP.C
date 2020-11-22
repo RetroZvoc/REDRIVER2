@@ -40,7 +40,7 @@ CELL_OBJECT** coplist;
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ NewProcessRoadMapLump(struct ROAD_MAP_LUMP_DATA *pRoadMapLumpData /*$s0*/, char *pLumpFile /*$s1*/)
+// void /*$ra*/ NewProcessRoadMapLump(ROAD_MAP_LUMP_DATA *pRoadMapLumpData /*$s0*/, char *pLumpFile /*$s1*/)
  // line 237, offset 0x0005d7bc
 	/* begin block 1 */
 		// Start line: 238
@@ -150,7 +150,7 @@ void ProcessJuncBoundsLump(char *lump_file, int lump_size)
 
 // decompiled code
 // original method signature: 
-// struct MODEL * /*$ra*/ FindModelPtrWithName(char *name /*$s4*/)
+// MODEL * /*$ra*/ FindModelPtrWithName(char *name /*$s4*/)
  // line 289, offset 0x0005d40c
 	/* begin block 1 */
 		// Start line: 290
@@ -353,7 +353,7 @@ void InitCellData(void)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ newPositionVisible(struct VECTOR *pos /*$a0*/, char *pvs /*$a1*/, int ccx /*$a2*/, int ccz /*$a3*/)
+// int /*$ra*/ newPositionVisible(VECTOR *pos /*$a0*/, char *pvs /*$a1*/, int ccx /*$a2*/, int ccz /*$a3*/)
  // line 378, offset 0x0005d61c
 	/* begin block 1 */
 		// Start line: 379
@@ -398,20 +398,9 @@ int newPositionVisible(VECTOR *pos, char *pvs, int ccx, int ccz)
 	cellx = (dx / MAP_CELL_SIZE) - ccx;
 	cellz = (dz / MAP_CELL_SIZE) - ccz;
 
-	if (cellx < 0)
-		ab = -cellx;
-	else
-		ab = cellx;
-
-	if (ab <= view_dist)
+	if (ABS(cellx) <= view_dist && ABS(cellz) <= view_dist)
 	{
-		if (cellz < 0)
-			ab = -cellz;
-		else
-			ab = cellz;
-	
-		if (ab <= view_dist)
-			return pvs[cellx + 10 + (cellz + 10) * pvs_square] != 0;
+		return pvs[cellx + 10 + (cellz + 10) * pvs_square] != 0;
 	}
 
 	return 0;
@@ -421,7 +410,7 @@ int newPositionVisible(VECTOR *pos, char *pvs, int ccx, int ccz)
 
 // decompiled code
 // original method signature: 
-// int /*$ra*/ PositionVisible(struct VECTOR *pos /*$a0*/)
+// int /*$ra*/ PositionVisible(VECTOR *pos /*$a0*/)
  // line 400, offset 0x0005d560
 	/* begin block 1 */
 		// Start line: 401
@@ -495,7 +484,7 @@ int PositionVisible(VECTOR *pos)
 		// Start line: 440
 		// Start offset: 0x0005C824
 		// Variables:
-	// 		struct AREA_LOAD_INFO regions_to_unpack[3]; // stack offset -104
+	// 		AREA_LOAD_INFO regions_to_unpack[3]; // stack offset -104
 	// 		int leftright_unpack; // $a1
 	// 		int topbottom_unpack; // $a2
 	// 		int num_regions_to_unpack; // $s5
@@ -506,7 +495,7 @@ int PositionVisible(VECTOR *pos)
 	// 		int sortcount; // $s4
 	// 		int i; // $v1
 	// 		int j; // $a2
-	// 		struct SVECTOR sortregions[4]; // stack offset -80
+	// 		SVECTOR sortregions[4]; // stack offset -80
 	// 		unsigned short sortorder[4]; // stack offset -48
 	// 		int force_load_boundary; // $a0
 
@@ -515,7 +504,7 @@ int PositionVisible(VECTOR *pos)
 			// Start offset: 0x0005C9F4
 			// Variables:
 		// 		int region_to_unpack; // $s0
-		// 		struct Spool *spoolptr; // $a1
+		// 		Spool *spoolptr; // $a1
 
 			/* begin block 1.1.1 */
 				// Start line: 559
@@ -808,9 +797,10 @@ void ControlMap(void)
 		UnpackRegion(region_to_unpack, region_x & 1U | (region_z & 1U) * 2);		// is that ever valid for 'target_barrel_region'?
 
 	current_region = region_to_unpack;
-	CheckUnpackNewRegions();
-
+	
 	CheckLoadAreaData(current_barrel_region_xcell, current_barrel_region_zcell);
+
+	CheckUnpackNewRegions();
 
 	current_cell_x = (camera_position.vx + units_across_halved) / MAP_CELL_SIZE;
 	current_cell_z = (camera_position.vz + units_down_halved) / MAP_CELL_SIZE;
@@ -842,7 +832,7 @@ void ControlMap(void)
 				// Variables:
 			// 		int region; // $a3
 			// 		int barrel_region; // $a1
-			// 		struct Spool *spoolptr; // $v1
+			// 		Spool *spoolptr; // $v1
 
 				/* begin block 1.1.1.1 */
 					// Start line: 726
@@ -967,7 +957,7 @@ void InitMap(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ GetVisSetAtPosition(struct VECTOR *pos /*$a0*/, char *tgt /*$t3*/, int *ccx /*$a1*/, int *ccz /*$a3*/)
+// void /*$ra*/ GetVisSetAtPosition(VECTOR *pos /*$a0*/, char *tgt /*$t3*/, int *ccx /*$a1*/, int *ccz /*$a3*/)
  // line 756, offset 0x0005d6e4
 	/* begin block 1 */
 		// Start line: 757

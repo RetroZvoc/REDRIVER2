@@ -12,6 +12,7 @@
 #include "CIV_AI.H"
 
 #include "STRINGS.H"
+#include "RAND.H"
 
 char AnalogueUnpack[16] = { 
 	0, -51, -63, -75, -87, -99, -111, -123,
@@ -30,7 +31,7 @@ char *replayptr = NULL;
 int ReplaySize = 0;
 
 unsigned long PingBufferPos = 0;
-_PING_PACKET *PingBuffer = NULL;
+PING_PACKET *PingBuffer = NULL;
 
 SXYPAIR *PlayerWayRecordPtr = NULL;
 PLAYBACKCAMERA *PlaybackCamera = NULL;
@@ -96,8 +97,8 @@ void InitPadRecording(void)
 
 		PlaybackCamera = (PLAYBACKCAMERA *)(PlayerWayRecordPtr + MAX_REPLAY_WAYPOINTS);
 
-		PingBuffer = (_PING_PACKET *)(PlaybackCamera + MAX_REPLAY_CAMERAS);
-		setMem8((u_char*)PingBuffer, -1, sizeof(_PING_PACKET) * MAX_REPLAY_PINGS);
+		PingBuffer = (PING_PACKET *)(PlaybackCamera + MAX_REPLAY_CAMERAS);
+		setMem8((u_char*)PingBuffer, -1, sizeof(PING_PACKET) * MAX_REPLAY_PINGS);
 
 		replayptr = (char*)(PingBuffer + MAX_REPLAY_PINGS);
 
@@ -115,6 +116,9 @@ void InitPadRecording(void)
 	}
 	else
 	{
+		// reset stream count as cutscene/chase can increase it
+		NumReplayStreams = NumPlayers;
+		
 		for (i = 0; i < NumReplayStreams; i++)
 		{
 			ReplayStreams[i].playbackrun = 0;
@@ -140,7 +144,7 @@ void InitPadRecording(void)
 		// Start line: 658
 		// Start offset: 0x0001A234
 		// Variables:
-	// 		struct REPLAY_SAVE_HEADER *header; // $s2
+	// 		REPLAY_SAVE_HEADER *header; // $s2
 	// 		int i; // $a2
 	// 		int size; // $s1
 	// 		int numstreams; // $s6
@@ -174,9 +178,9 @@ int SaveReplayToBuffer(char *buffer)
 	header->magic = 0x14793209;			// TODO: custom
 	header->GameLevel = GameLevel;
 	header->GameType = GameType;
-	header->NumReplayStreams = NumReplayStreams;
 	header->MissionNumber = gCurrentMissionNumber;
-	
+
+	header->NumReplayStreams = NumReplayStreams - NumCutsceneStreams; 
 	header->NumPlayers = NumPlayers;
 	header->CutsceneEvent = -1;
 	header->RandomChase = gRandomChase;
@@ -236,8 +240,8 @@ int SaveReplayToBuffer(char *buffer)
 	memcpy(pt, PlaybackCamera, sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS);
 	pt += sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
 
-	memcpy(pt, PingBuffer, sizeof(_PING_PACKET) * MAX_REPLAY_PINGS);
-	pt += sizeof(_PING_PACKET) * MAX_REPLAY_PINGS;
+	memcpy(pt, PingBuffer, sizeof(PING_PACKET) * MAX_REPLAY_PINGS);
+	pt += sizeof(PING_PACKET) * MAX_REPLAY_PINGS;
 
 	// [A] is that ever valid?
 	if (gHaveStoredData)
@@ -263,8 +267,8 @@ int SaveReplayToBuffer(char *buffer)
 		// Start line: 742
 		// Start offset: 0x0001A798
 		// Variables:
-	// 		struct REPLAY_SAVE_HEADER *header; // $s3
-	// 		struct REPLAY_STREAM_HEADER *sheader; // $t0
+	// 		REPLAY_SAVE_HEADER *header; // $s3
+	// 		REPLAY_STREAM_HEADER *sheader; // $t0
 	// 		int i; // $a1
 	// 		int size; // $s0
 	/* end block 1 */
@@ -292,9 +296,12 @@ int SaveReplayToBuffer(char *buffer)
 	// End Line: 1588
 
 #ifdef CUTSCENE_RECORDER
+#include "../utils/ini.h"
+
 int gCutsceneAsReplay = 0;
 int gCutsceneAsReplay_PlayerId = 0;
 int gCutsceneAsReplay_PlayerChanged = 0;
+int gCutsceneAsReplay_ReserveSlots = 2;
 char gCutsceneRecorderPauseText[64] = { 0 };
 char gCurrentChasePauseText[64] = { 0 };
 
@@ -375,6 +382,88 @@ int LoadCutsceneAsReplay(int subindex)
 
 	return 0;
 }
+
+void LoadCutsceneRecorder(char* configFilename)
+{
+	ini_t* config;
+	int loadExistingCutscene;
+	int subindex;
+
+	config = ini_load(configFilename);
+
+	if(!config)
+	{
+		printError("Unable to open '%s'!\n", configFilename);
+		return;
+	}
+
+	//const char* stream = ini_get(config, "fs", "dataFolder");
+
+	loadExistingCutscene = 0;
+	ini_sget(config, "settings", "loadExistingCutscene", "%d", &loadExistingCutscene);
+	ini_sget(config, "settings", "mission", "%d", &gCutsceneAsReplay);
+	ini_sget(config, "settings", "baseMission", "%d", &gCurrentMissionNumber);
+	ini_sget(config, "settings", "player", "%d", &gCutsceneAsReplay_PlayerId);
+	ini_sget(config, "settings", "reserveSlots", "%d", &gCutsceneAsReplay_ReserveSlots);
+	ini_sget(config, "settings", "subindex", "%d", &subindex);
+
+	// totally limited by streams
+	if(gCutsceneAsReplay_ReserveSlots > 8)
+		gCutsceneAsReplay_ReserveSlots = 8;
+	
+	if(loadExistingCutscene)
+	{
+		if(!LoadCutsceneAsReplay(subindex))
+		{
+			ini_free(config);
+		
+			gLoadedReplay = 0;
+			gCutsceneAsReplay = 0;
+			return;
+		}
+
+		gLoadedReplay = 1;
+		CurrentGameMode = GAMEMODE_REPLAY;
+	}
+	else
+	{
+		int i;
+		char curStreamName[40];
+		STREAM_SOURCE* stream;
+
+		InitPadRecording();
+
+		ini_sget(config, "settings", "streams", "%d", &NumReplayStreams);
+		
+		// initialize all streams
+		for(i = 0; i < NumReplayStreams; i++)
+		{
+			stream = &ReplayStreams[i].SourceType;
+			sprintf(curStreamName, "stream%d", i);
+
+			stream->position.vy = 0;
+			
+			ini_sget(config, curStreamName, "type", "%hhd", &stream->type);
+			ini_sget(config, curStreamName, "model", "%hhd", &stream->model);
+			ini_sget(config, curStreamName, "palette", "%hhd", &stream->palette);
+			ini_sget(config, curStreamName, "controlType", "%hhd", &stream->controlType);
+			ini_sget(config, curStreamName, "startRot", "%d", &stream->rotation);
+			ini_sget(config, curStreamName, "startPosX", "%d", &stream->position.vx);
+			ini_sget(config, curStreamName, "startPosY", "%d", &stream->position.vy);
+			ini_sget(config, curStreamName, "startPosZ", "%d", &stream->position.vz);
+		}		
+	}
+
+	GameType = GAME_TAKEADRIVE;
+	CameraCnt = 0;
+	ini_free(config);
+
+	LaunchGame();
+
+	gLoadedReplay = 0;
+	gCutsceneAsReplay = 0;
+}
+
 #endif // CUTSCENE_RECORDER
 
 // [D] [T]
@@ -492,9 +581,9 @@ int LoadReplayFromBuffer(char *buffer)
 	pt += sizeof(PLAYBACKCAMERA) * MAX_REPLAY_CAMERAS;
 
 	PingBufferPos = 0;
-	PingBuffer = (_PING_PACKET *)(PlaybackCamera + MAX_REPLAY_CAMERAS);
-	memcpy(PingBuffer, pt, sizeof(_PING_PACKET) * MAX_REPLAY_PINGS);
-	pt += sizeof(_PING_PACKET) * MAX_REPLAY_PINGS;
+	PingBuffer = (PING_PACKET *)(PlaybackCamera + MAX_REPLAY_CAMERAS);
+	memcpy(PingBuffer, pt, sizeof(PING_PACKET) * MAX_REPLAY_PINGS);
+	pt += sizeof(PING_PACKET) * MAX_REPLAY_PINGS;
 
 	replayptr = (char*)(PingBuffer + MAX_REPLAY_PINGS);
 
@@ -507,7 +596,25 @@ int LoadReplayFromBuffer(char *buffer)
 	return 1;
 }
 
+#ifndef PSX
+int LoadUserAttractReplay(int mission, int userId)
+{
+	char customFilename[64];
+	
+	if (userId >= 0 && userId < gNumUserChases)
+	{
+		sprintf(customFilename, "REPLAYS\\User\\%s\\ATTRACT.%d", gUserReplayFolderList[userId], mission);
 
+		if (FileExists(customFilename))
+		{
+			if (Loadfile(customFilename, _other_buffer))
+				return LoadReplayFromBuffer(_other_buffer);
+		}
+	}
+
+	return 0;
+}
+#endif
 
 // decompiled code
 // original method signature: 
@@ -537,7 +644,26 @@ int LoadAttractReplay(int mission)
 {
 	char filename[32];
 
-	sprintf(filename,"REPLAYS\\ATTRACT.%d", mission);
+#ifndef PSX
+	int userId = -1;
+	
+	// [A] REDRIVER2 PC - custom attract replays
+	if (gNumUserChases)
+	{
+		userId = rand() % (gNumUserChases + 1);
+
+		if (userId == gNumUserChases)
+			userId = -1;
+	}
+
+	if (LoadUserAttractReplay(mission, userId))
+	{
+		printInfo("Loaded custom attract replay (%d) by %s\n", mission, gUserReplayFolderList[userId]);
+		return 1;
+	}
+#endif
+
+	sprintf(filename, "REPLAYS\\ATTRACT.%d", mission);
 
 	if (!FileExists(filename))
 		return 0;
@@ -558,7 +684,7 @@ int LoadAttractReplay(int mission)
 		// Start line: 1183
 		// Start offset: 0x0001B090
 		// Variables:
-	// 		struct _PING_PACKET *pp; // $a1
+	// 		_PING_PACKET *pp; // $a1
 	// 		char retCarId; // $v0
 	/* end block 1 */
 	// End offset: 0x0001B118
@@ -578,7 +704,7 @@ int LoadAttractReplay(int mission)
 char GetPingInfo(char *cookieCount)
 {
 	char retCarId;
-	_PING_PACKET *pp;
+	PING_PACKET *pp;
 
 	retCarId = -1;
 
@@ -596,6 +722,10 @@ char GetPingInfo(char *cookieCount)
 
 			PingBufferPos++;
 		}
+		else
+		{
+			printInfo("-1 frame!\n");
+		}
 
 		return retCarId;
 	}
@@ -606,21 +736,27 @@ char GetPingInfo(char *cookieCount)
 // [A] Stores ping info into replay buffer
 int StorePingInfo(int cookieCount, int carId)
 {
-	_PING_PACKET* packet;
+#ifdef CUTSCENE_RECORDER
+	PING_PACKET* packet;
 
+	//extern int gCutsceneAsReplay;
+	if (gCutsceneAsReplay == 0)
+		return 0;
+	
 	if (CurrentGameMode == GAMEMODE_REPLAY || gInGameChaseActive != 0)
 		return 0;
-
+	
 	if(PingBuffer != NULL && PingBufferPos < MAX_REPLAY_PINGS)
 	{
 		packet = &PingBuffer[PingBufferPos++];
 		packet->frame = (CameraCnt - frameStart & 0xffffU);
 		packet->carId = carId;
+		
 		packet->cookieCount = cookieCount;
 
 		return 1;
 	}
-
+#endif
 	return 0;
 }
 
@@ -643,7 +779,7 @@ int IsPingInfoAvailable()
 		// Start line: 1224
 		// Start offset: 0x0001AF34
 		// Variables:
-	// 		struct XYPAIR region_coords; // stack offset -8
+	// 		XYPAIR region_coords; // stack offset -8
 	// 		int region; // $a0
 	/* end block 1 */
 	// End offset: 0x0001AFFC
@@ -860,7 +996,7 @@ void cjpRecord(int stream, ulong *ppad, char *psteer, char *ptype)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ AllocateReplayStream(struct REPLAY_STREAM *stream /*$a0*/, int maxpad /*$a1*/)
+// void /*$ra*/ AllocateReplayStream(REPLAY_STREAM *stream /*$a0*/, int maxpad /*$a1*/)
  // line 1383, offset 0x0001b17c
 	/* begin block 1 */
 		// Start line: 3101
@@ -915,7 +1051,7 @@ void AllocateReplayStream(REPLAY_STREAM *stream, int maxpad)
 		// Start line: 1403
 		// Start offset: 0x0001B1F0
 		// Variables:
-	// 		struct REPLAY_STREAM *rstream; // $a2
+	// 		REPLAY_STREAM *rstream; // $a2
 	// 		unsigned long t0; // $a0
 	/* end block 1 */
 	// End offset: 0x0001B280
@@ -974,7 +1110,7 @@ int Get(int stream, ulong *pt0)
 		// Start line: 1442
 		// Start offset: 0x0001B280
 		// Variables:
-	// 		struct REPLAY_STREAM *rstream; // $a0
+	// 		REPLAY_STREAM *rstream; // $a0
 	// 		unsigned char **pstream; // $a3
 	// 		unsigned long t0; // $a1
 	/* end block 1 */

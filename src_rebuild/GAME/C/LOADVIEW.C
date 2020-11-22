@@ -28,7 +28,7 @@ int loading_bar_pos = 0;
 		// Start line: 202
 		// Start offset: 0x0005816C
 		// Variables:
-	// 		struct POLY_G4 poly; // stack offset -56
+	// 		POLY_G4 poly; // stack offset -56
 	// 		int col; // $s0
 	/* end block 1 */
 	// End offset: 0x00058298
@@ -51,43 +51,43 @@ int loading_bar_pos = 0;
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void ShowLoading(void)
 {
 	POLY_G4 poly;
 
-	if (NewLevel != 0 || gInFrontend != 0) 
-	{
-		int col = (VERTTYPE)(++loading_bar_pos * load_steps);
+	if (NewLevel == 0 && gInFrontend == 0)
+		return;
+
+	int col = (VERTTYPE)(++loading_bar_pos * load_steps);
 		
-		if (col > 120)
-			col = 120;
+	if (col > 120)
+		col = 120;
 
-		SetPolyG4(&poly);
+	SetPolyG4(&poly);
 
-		setRGB0(&poly, 30, 11, 11);
-		setRGB1(&poly, 122, 11, 11);
-		setRGB2(&poly, 30, 11, 11);
-		setRGB3(&poly, 122, 11, 11);
+	setRGB0(&poly, 30, 11, 11);
+	setRGB1(&poly, 122, 11, 11);
+	setRGB2(&poly, 30, 11, 11);
+	setRGB3(&poly, 122, 11, 11);
 
-		setXYWH(&poly, 176, 435, col, 25);
+	setXYWH(&poly, 176, 435, col, 25);
 
-		DrawPrim(&poly);
-		VSync(0);
-		DrawSync(0);
-		PutDrawEnv(&load_draw);
-		PutDispEnv(&load_disp);
+	DrawPrim(&poly);
+	VSync(0);
+	DrawSync(0);
+	PutDrawEnv(&load_draw);
+	PutDispEnv(&load_disp);
 
-		DrawPrim(&poly);
-		VSync(0);
-		DrawSync(0);
-		PutDrawEnv(&load_draw);
-		PutDispEnv(&load_disp);
+	DrawPrim(&poly);
+	VSync(0);
+	DrawSync(0);
+	PutDrawEnv(&load_draw);
+	PutDispEnv(&load_disp);
 
 #ifndef PSX
-		Emulator_EndScene();
+	Emulator_EndScene();
 #endif
-	}
 }
 
 
@@ -122,7 +122,7 @@ int screen_fade_start = 0;
 int screen_fade_end = 0;
 int screen_fade_speed = 0;
 
-// [D]
+// [D] [T]
 void SetupScreenFade(int start, int end, int speed)
 {
 	screen_fade_value = start;
@@ -140,8 +140,8 @@ void SetupScreenFade(int start, int end, int speed)
 		// Start line: 269
 		// Start offset: 0x000582AC
 		// Variables:
-	// 		static struct POLY_F4 poly; // offset 0x0
-	// 		static struct POLY_FT4 p; // offset 0x20
+	// 		static POLY_F4 poly; // offset 0x0
+	// 		static POLY_FT4 p; // offset 0x20
 	// 		int do_fade; // $v0
 
 		/* begin block 1.1 */
@@ -161,7 +161,7 @@ void SetupScreenFade(int start, int end, int speed)
 	/* end block 2 */
 	// End Line: 566
 
-// [D]
+// [D] [T]
 void FadeGameScreen(int flag, int speed)
 {
 	static POLY_F4 poly; // offset 0x0
@@ -233,9 +233,9 @@ void FadeGameScreen(int flag, int speed)
 	// 		int fcount; // $s0
 	// 		int j; // $s2
 	// 		int done; // $fp
-	// 		struct RECT dest; // stack offset -264
-	// 		struct SPRT prims[4]; // stack offset -256
-	// 		struct POLY_FT3 nulls[4]; // stack offset -176
+	// 		RECT dest; // stack offset -264
+	// 		SPRT prims[4]; // stack offset -256
+	// 		POLY_FT3 nulls[4]; // stack offset -176
 	// 		int fade; // $s5
 	// 		int fade_step; // stack offset -48
 	/* end block 1 */
@@ -257,35 +257,39 @@ void FadeGameScreen(int flag, int speed)
 	/* end block 4 */
 	// End Line: 704
 
-// [D]
+// [D] [T]
 void ShowLoadingScreen(char *screen_name, int effect, int loading_steps)
 {
-	bool bVar1;
-	char local_a0_424;
-	uint uVar2;
-	SPRT *pSVar3;
-	SPRT *pSVar4;
-	POLY_FT3 *pPVar5;
-	POLY_FT3 *pPVar6;
-	uint uVar7;
-	int iVar8;
-	int iVar9;
-	int iVar10;
-	unsigned char uVar11;
-	int iVar12;
+	int done;
+
+	SPRT *sprt;
+	POLY_FT3 *null;
+
+	uint tp;
+	int i;
+	int j;
+	int fade;
+
 	RECT16 dest;
 	SPRT prims[4];
 	POLY_FT3 nulls[4];
 	int fade_step;
 
-	iVar12 = 0xff;
-	fade_step = -4;
-	if (effect == 1) {
+	if (effect == 1) 
 		SetDispMask(0);
-	}
+
 	SetupDefDrawEnv(&load_draw, 0, 0, 320, 512);
 	SetupDefDispEnv(&load_disp, 0, 0, 320, 512);
-	load_draw.dfe = '\x01';
+
+	load_draw.dfe = 1;
+#ifndef PSX
+	load_draw.clip.x = 0;
+	load_draw.clip.y = 0;
+	load_draw.clip.w = 320;
+	load_draw.clip.h = 512;
+	load_disp.isinter = 1;
+#endif
+
 	PutDispEnv(&load_disp);
 	PutDrawEnv(&load_draw);
 
@@ -299,103 +303,109 @@ void ShowLoadingScreen(char *screen_name, int effect, int loading_steps)
 
 	DrawSync(0);
 
-	bVar1 = false;
-	iVar8 = 0;
-	pSVar4 = prims + 2;
-	pPVar6 = nulls + 2;
-	uVar7 = 320;
-	pPVar5 = nulls;
-	pSVar3 = prims;
-	do {
-		uVar2 = uVar7 & 0x3ff;
-		uVar7 = uVar7 + 0x80;
-		setSprt(pSVar3);
-		pSVar3->x0 = (short)(iVar8 << 8);
-		pSVar3->y0 = 0;
-		pSVar3->u0 = '\0';
-		pSVar3->v0 = '\0';
-		pSVar3->w = 0x100;
-		pSVar3->h = 0x100;
-		pSVar3->clut = 0x7fd4;
+	done = 0;
+	
+	tp = 320;
+	
+	null = nulls;
+	sprt = prims;
 
-		setPolyFT3(pPVar5);
-		pPVar5->x0 = -1;
-		pPVar5->y0 = -1;
-		pPVar5->x1 = -1;
-		pPVar5->y1 = -1;
-		pPVar5->x2 = -1;
-		pPVar5->y2 = -1;
-		pPVar5->tpage = (ushort)((int)uVar2 >> 6) | 0x80;
-		pPVar5 = pPVar5 + 1;
-		iVar8 = iVar8 + 1;
-		pSVar3 = pSVar3 + 1;
-	} while (iVar8 < 2);
+	i = 0;
+	while (i < 2)
+	{
+		setSprt(sprt);
+		sprt->x0 = (i << 8);
+		sprt->y0 = 0;
+		sprt->u0 = 0;
+		sprt->v0 = 0;
+		sprt->w = 256;
+		sprt->h = 256;
+		sprt->clut = getClut(320, 511);
 
-	iVar8 = 0;
-	uVar7 = 0x140;
+		setPolyFT3(null);
+		null->x0 = -1;
+		null->y0 = -1;
+		null->x1 = -1;
+		null->y1 = -1;
+		null->x2 = -1;
+		null->y2 = -1;
+		null->tpage = getTPage(1, 0, tp, 0);
+	
+		null++;
+		sprt++;
 
-	do {
-		uVar2 = uVar7 & 0x3ff;
-		uVar7 = uVar7 + 0x80;
-		setSprt(pSVar4);
-		pSVar4->x0 = (short)(iVar8 << 8);
-		pSVar4->y0 = 0x100;
-		pSVar4->u0 = '\0';
-		pSVar4->v0 = '\0';
-		pSVar4->w = 0x100;
-		pSVar4->h = 0x100;
-		pSVar4->clut = 0x7fd4;
+		tp += 128;
 
-		setPolyFT3(pPVar6);
-		pPVar6->x0 = -1;
-		pPVar6->y0 = -1;
-		pPVar6->x1 = -1;
-		pPVar6->y1 = -1;
-		pPVar6->x2 = -1;
-		pPVar6->y2 = -1;
-		pPVar6->tpage = (ushort)((int)uVar2 >> 6) | 0x90;
-		pPVar6 = pPVar6 + 1;
-		iVar8 = iVar8 + 1;
-		pSVar4 = pSVar4 + 1;
-	} while (iVar8 < 2);
+		i++;
+	}
 
-	if (effect == 1) {
-		iVar12 = 8;
+	i = 0;
+	tp = 320;
+
+	while (i < 2)
+	{
+		setSprt(sprt);
+		sprt->x0 = (i << 8);
+		sprt->y0 = 256;
+		sprt->u0 = 0;
+		sprt->v0 = 0;
+		sprt->w = 256;
+		sprt->h = 256;
+		sprt->clut = getClut(320, 511);
+
+		setPolyFT3(null);
+		null->x0 = -1;
+		null->y0 = -1;
+		null->x1 = -1;
+		null->y1 = -1;
+		null->x2 = -1;
+		null->y2 = -1;
+		null->tpage = getTPage(1, 0, tp, 256);
+
+		null++;
+		sprt++;
+		
+		tp += 128;
+		
+		i++;
+	}
+
+	if (effect == 1) 
+	{
+		fade = 8;
 		fade_step = 2;
 	}
-	else {
-		if (effect == 2) {
-			iVar12 = 128;
-			fade_step = -2;
-		}
+	else if (effect == 2)
+	{
+		fade = 128;
+		fade_step = -2;
 	}
-	iVar8 = 0;
+	else
+	{
+		fade = 255;
+		fade_step = -4;
+	}
+
+	i = 0;
 	do {
-		if (iVar8 == 2) {
+
+		if (i == 2)
 			SetDispMask(1);
+	
+		i++;
+
+		for (j = 0; j < 4; j++)
+		{
+			prims[j].r0 = fade;
+			prims[j].g0 = fade;
+			prims[j].b0 = fade;
 		}
-		pPVar5 = nulls;
-		pSVar4 = prims;
-		iVar8 = iVar8 + 1;
-		iVar9 = 3;
-		iVar10 = iVar12 + fade_step;
-		pSVar3 = pSVar4;
-		do {
-			uVar11 = (unsigned char)iVar12;
-			pSVar3->r0 = uVar11;
-			pSVar3->g0 = uVar11;
-			pSVar3->b0 = uVar11;
-			iVar9 = iVar9 + -1;
-			pSVar3 = pSVar3 + 1;
-		} while (-1 < iVar9);
-		iVar12 = 3;
-		do {
-			DrawPrim(pPVar5);
-			DrawPrim(pSVar4);
-			pSVar4 = pSVar4 + 1;
-			iVar12 = iVar12 + -1;
-			pPVar5 = pPVar5 + 1;
-		} while (-1 < iVar12);
+
+		for (j = 0; j < 4; j++)
+		{
+			DrawPrim(&nulls[j]);
+			DrawPrim(&prims[j]);
+		}
 
 		DrawSync(0);
 		VSync(0);
@@ -406,24 +416,28 @@ void ShowLoadingScreen(char *screen_name, int effect, int loading_steps)
 
 		PutDispEnv(&load_disp);
 		PutDrawEnv(&load_draw);
-		if (effect == 1) {
-			if (0x7f < iVar10) {
-				bVar1 = true;
-			}
+
+		fade += fade_step;
+		
+		if (effect == 1) 
+		{
+			if (fade > 127)
+				done = 1;
 		}
-		else {
-			if ((effect == 2) && (iVar10 < 0)) {
-				bVar1 = true;
-			}
+		else if (effect == 2)
+		{
+			if(fade < 0)
+				done = 1;
 		}
-		iVar12 = iVar10;
-	} while (!bVar1);
-	load_steps = 0x18;
-	if (gInFrontend == 0) {
+	
+	} while (!done);
+
+	load_steps = 24;
+
+	if (gInFrontend == 0) 
 		load_steps = 20;
-	}
+
 	loading_bar_pos = 0;
-	return;
 }
 
 
@@ -436,7 +450,7 @@ void ShowLoadingScreen(char *screen_name, int effect, int loading_steps)
 		// Start line: 483
 		// Start offset: 0x000589D0
 		// Variables:
-	// 		struct POLY_F4 poly[2]; // stack offset -80
+	// 		POLY_F4 poly[2]; // stack offset -80
 	// 		int h; // $s0
 	// 		int done; // $s2
 	/* end block 1 */
@@ -448,7 +462,7 @@ void ShowLoadingScreen(char *screen_name, int effect, int loading_steps)
 	/* end block 2 */
 	// End Line: 1501
 
-// [D]
+// [D] [T]
 void CloseShutters(int speed, int width, int height)
 {
 	bool done;
@@ -482,8 +496,8 @@ void CloseShutters(int speed, int width, int height)
 
 	} while (!done);
 
-	ClearOTagR((u_long*)current->ot, 0x1080);
-	ClearOTagR((u_long*)last->ot, 0x1080);
+	ClearOTagR((u_long*)current->ot, OTSIZE);
+	ClearOTagR((u_long*)last->ot, OTSIZE);
 
 	SetDispMask(0);
 }
@@ -531,10 +545,12 @@ POLY_GT4 fade_gt4[2];
 static int fadeVal = 0xFF;
 static int bWantFade = 0;
 
-// [D]
+// [D] [T]
 void SetupFadePolys(void)
 {
-	for (int i = 0; i < 2; i++)
+	int i;
+
+	for (i = 0; i < 2; i++)
 	{
 		setPolyG4(&fade_g4[i]);
 		setSemiTrans(&fade_g4[i], 1);
@@ -544,7 +560,7 @@ void SetupFadePolys(void)
 
 		setXYWH(&fade_gt4[i], -1, -1, 1, 1);
 		setTPage(&fade_gt4[i], 0, 2, 0, 0);
-	};
+	}
 
 	bWantFade = 1;
 	fadeVal = 255;
@@ -561,7 +577,7 @@ void SetupFadePolys(void)
 		// Start line: 558
 		// Start offset: 0x00058824
 		// Variables:
-	// 		struct POLY_G4 *fl_g4; // $a2
+	// 		POLY_G4 *fl_g4; // $a2
 	/* end block 1 */
 	// End offset: 0x000589B0
 	// End Line: 577
@@ -583,7 +599,7 @@ void SetupFadePolys(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DrawFadePoly(void)
 {
 	if (fadeVal < 0) 
@@ -651,7 +667,7 @@ void DrawFadePoly(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void DisplayMissionTitle(void)
 {
 	if (bWantFade != 0 && CameraCnt == 1) 
@@ -663,9 +679,23 @@ void DisplayMissionTitle(void)
 	if (bMissionTitleFade != 0 && pauseflag == 0) 
 	{
 		fadeVal -= 6;
-		if (NoPlayerControl == 0)
+
+		if (NoPlayerControl != 0)
 		{
-			if (gMissionTitle != (char *)0x0) 
+			if (fadeVal < 0) 
+			{
+				bMissionTitleFade = 0;
+				
+				if (gInGameCutsceneActive == 0)
+					gStopPadReads = 0;
+
+				gShowMap = 0;
+				fadeVal = 0;
+			}
+		}
+		else 
+		{
+			if (gMissionTitle) 
 			{
 #ifdef PSX
 				gShowMap = 1;
@@ -674,23 +704,11 @@ void DisplayMissionTitle(void)
 				gShowMap = 0;
 #else
 				SetTextColour(124, 108, 40);
-				PrintStringCentred(gMissionTitle, 0x78);
+				PrintStringCentred(gMissionTitle, 120);
 #endif
 			}
 
 			DrawFadePoly();
-		}
-		else 
-		{
-			if (fadeVal < 0) 
-			{
-				bMissionTitleFade = 0;
-				if (gInGameCutsceneActive == 0)
-					gStopPadReads = 0;
-
-				gShowMap = 0;
-				fadeVal = 0;
-			}
 		}
 	}
 }

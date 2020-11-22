@@ -1,12 +1,14 @@
 #include "DRIVER2.H"
 
 #ifndef PSX
+#include <stdint.h>
 #include <SDL.h>
 #endif // !PSX
 
 #include "LIBETC.H"
 
 #include "SYSTEM.H"
+#include "PLATFORM.H"
 #include "XAPLAY.H"
 #include "LOADVIEW.H"
 #include "MISSION.H"
@@ -14,22 +16,19 @@
 #include "MAIN.H"
 #include "PAD.H"
 #include "DRAW.H"
-
-
-#include <string.h>
-
-#include <PLATFORM.H>
+#include "STRINGS.H"
+#include "PLATFORM.H"
 
 // Initialized in redriver2_main
-char*	_overlay_buffer = NULL;		// 0x1C0000
-char*	_frontend_buffer = NULL;	// 0xFB400
-char*	_other_buffer = NULL;		// 0xF3000
-char*	_other_buffer2 = NULL;		// 0xE7000
-OTTYPE*	_OT1 = NULL;				// 0xF3000
-OTTYPE*	_OT2 = NULL;				// 0xF7200
-char*	_primTab1 = NULL;			// 0xFB400
-char*	_primTab2 = NULL;			// 0x119400
-char*	_replay_buffer = NULL;		// 0x1FABBC
+char* _overlay_buffer = NULL;		// 0x1C0000
+char* _frontend_buffer = NULL;	// 0xFB400
+char* _other_buffer = NULL;		// 0xF3000
+char* _other_buffer2 = NULL;		// 0xE7000
+OTTYPE* _OT1 = NULL;				// 0xF3000
+OTTYPE* _OT2 = NULL;				// 0xF7200
+char* _primTab1 = NULL;			// 0xFB400
+char* _primTab2 = NULL;			// 0x119400
+char* _replay_buffer = NULL;		// 0x1FABBC
 char gDataFolder[32] = "DRIVER2\\";
 
 #ifdef USE_CRT_MALLOC
@@ -42,6 +41,9 @@ int g_numDynamicAllocs = 0;
 
 char* sys_malloc(int size, char* funcname, int line)
 {
+	if (g_numDynamicAllocs & 0x10000)
+		sys_tempfree();
+
 #ifdef _DEBUG
 	printWarning("CRT malloc(%d) in %s, line %d\n", size, funcname, __LINE__);
 #endif // _DEBUG
@@ -54,12 +56,39 @@ char* sys_malloc(int size, char* funcname, int line)
 
 void sys_freeall()
 {
-	for (int i = 0; i < g_numDynamicAllocs; i++)
+	int numAlloc = g_numDynamicAllocs & 0xfff;
+
+	for (int i = 0; i < numAlloc; i++)
 	{
 		free(g_dynamicAllocs[i]);
 		g_dynamicAllocs[i] = NULL;
 	}
+
 	g_numDynamicAllocs = 0;
+}
+
+char* sys_tempalloc(int size)
+{
+	if (g_numDynamicAllocs & 0x10000)
+	{
+		printError("sys_tempalloc: another alloc in use!\n");
+		trap(1000);
+		return NULL;
+	}
+
+	char* tmp_ptr = (char*)malloc(size);
+
+	g_dynamicAllocs[g_numDynamicAllocs] = tmp_ptr;
+	g_numDynamicAllocs |= 0x10000;
+
+	return tmp_ptr;
+}
+
+void sys_tempfree()
+{
+	g_numDynamicAllocs &= ~0x10000;
+	free(g_dynamicAllocs[g_numDynamicAllocs]);
+	g_dynamicAllocs[g_numDynamicAllocs] = NULL;
 }
 #else
 
@@ -141,38 +170,38 @@ char g_CurrentLevelFileName[64];
 	/* end block 4 */
 	// End Line: 2274
 
-// [D]
-void ClearMem(char *mem, int size)
+// [D] [T]
+void ClearMem(char* mem, int size)
 {
 	// 16 bit aligned clear
 #ifndef PSX
 	memset(mem, 0, size);
 #else
-	char *end;
+	char* end;
 	end = mem + size;
 
 	while ((((uint)mem & 3) != 0 && (mem < end))) {
 		*mem = 0;
-		mem = (char *)((int)mem + 1);
+		mem = (char*)((int)mem + 1);
 	}
 
 	while (mem <= end + -0x10) {
-		*(uint *)mem = 0;
-		((uint *)mem)[1] = 0;
-		((uint *)mem)[2] = 0;
-		((uint *)mem)[3] = 0;
-		mem = (char *)((uint *)mem + 4);
+		*(uint*)mem = 0;
+		((uint*)mem)[1] = 0;
+		((uint*)mem)[2] = 0;
+		((uint*)mem)[3] = 0;
+		mem = (char*)((uint*)mem + 4);
 	}
 
 	while (mem <= end + -4) {
-		*(uint *)mem = 0;
-		mem = (char *)((uint *)mem + 1);
+		*(uint*)mem = 0;
+		mem = (char*)((uint*)mem + 1);
 	}
 
 	while (mem < end) {
 		*mem = 0;
-		mem = (char *)((int)mem + 1);
-	}	
+		mem = (char*)((int)mem + 1);
+	}
 #endif // !PSX
 }
 
@@ -202,8 +231,8 @@ void ClearMem(char *mem, int size)
 	/* end block 3 */
 	// End Line: 2347
 
-// [D]
-void setMem8(unsigned char *mem, unsigned char val, int size)
+// [D] [T]
+void setMem8(unsigned char* mem, unsigned char val, int size)
 {
 	while (--size > 0)
 		*mem++ = val;
@@ -237,7 +266,8 @@ void setMem8(unsigned char *mem, unsigned char val, int size)
 	/* end block 3 */
 	// End Line: 2436
 
-void setMem16(ushort *mem, ushort val, int size)
+// [D] [T]
+void setMem16(ushort* mem, ushort val, int size)
 {
 	while (--size > 0)
 		*mem++ = val;
@@ -263,11 +293,13 @@ void setMem16(ushort *mem, ushort val, int size)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
+// [T]
 void Init_FileSystem(void)
 {
 	CdInit();
 	VSync(3);
-	return;
+
+	// Driver 1 were looking up level files on CD...
 }
 
 
@@ -305,21 +337,16 @@ void Init_FileSystem(void)
 
 int gNumCDRetries = 0;
 
-// [D]
+// [D] [T]
 void DoCDRetry(void)
 {
-	bool bVar1;
-	int iVar2;
-
-	iVar2 = gNumCDRetries + 1;
-	bVar1 = 9 < gNumCDRetries;
-	gNumCDRetries = iVar2;
-	if (bVar1) {
+	if (gNumCDRetries++ > 9)
+	{
 		CdInit();
 		VSync(3);
+
 		gNumCDRetries = 0;
 	}
-	return;
 }
 
 // decompiled code
@@ -343,17 +370,15 @@ void DoCDRetry(void)
 	// End Line: 1293
 
 // loads whole file into buffer
-int Loadfile(char *name, char *addr)
+// [D] [T]
+int Loadfile(char* name, char* addr)
 {
 	char namebuffer[64];
 #ifndef PSX
-	int fileSize = 0;
+	int fileSize;
 
 	sprintf(namebuffer, "%s%s", gDataFolder, name);
-
-#ifdef __unix__
-	fixslashes(namebuffer);
-#endif
+	FixPathSlashes(namebuffer);
 
 	FILE* fptr = fopen(namebuffer, "rb");
 	if (!fptr)
@@ -373,7 +398,7 @@ int Loadfile(char *name, char *addr)
 	fclose(fptr);
 
 	//SDL_Delay(200); // [A] PSX-like CD delay
-	
+
 	return numRead;
 #else // PSX
 	int nread;
@@ -414,8 +439,8 @@ int Loadfile(char *name, char *addr)
 	// 		int sector; // $s2
 	// 		int nsectors; // $s5
 	// 		char sectorbuffer[2048]; // stack offset -2120
-	// 		struct CdlFILE info; // stack offset -72
-	// 		struct CdlLOC pos; // stack offset -48
+	// 		CdlFILE info; // stack offset -72
+	// 		CdlLOC pos; // stack offset -48
 	// 		int i; // $a2
 	// 		int toload; // $s4
 	// 		int first; // $a0
@@ -430,17 +455,15 @@ int Loadfile(char *name, char *addr)
 
 
 // loads file partially into buffer
-int LoadfileSeg(char *name, char *addr, int offset, int loadsize)
+// [D] [T]
+int LoadfileSeg(char* name, char* addr, int offset, int loadsize)
 {
 	char namebuffer[64];
 #ifndef PSX
-	int fileSize = 0;
+	int fileSize;
 
 	sprintf(namebuffer, "%s%s", gDataFolder, name);
-
-#ifdef __unix__
-	fixslashes(namebuffer);
-#endif
+	FixPathSlashes(namebuffer);
 
 	FILE* fptr = fopen(namebuffer, "rb");
 	if (!fptr)
@@ -467,15 +490,15 @@ int LoadfileSeg(char *name, char *addr, int offset, int loadsize)
 	return numRead;
 #else // PSX
 
-	int iVar1;
-	int iVar3;
-	char* pcVar4;
-	int iVar5;
-	int iVar6;
-	int uVar7;
-	unsigned char result[8];
+	char* pcVar2;
+	int first;
+	int i;
+	int sector;
+	int toload;
+	int nsectors;
+	char namebuffer[64];
+	u_char result[8];
 	char sectorbuffer[2048];
-	CdlFILE info;
 	CdlLOC pos;
 
 	sprintf(namebuffer, "\\%s%s;1", gDataFolder, name);
@@ -485,88 +508,82 @@ int LoadfileSeg(char *name, char *addr, int offset, int loadsize)
 		strcpy(currentfilename, namebuffer);
 
 		while (CdSearchFile(&currentfileinfo, namebuffer) == NULL)
+		{
 			DoCDRetry();
+		}
 	}
 
-	iVar3 = (offset >> 0xb) + CdPosToInt((CdlLOC*)&currentfileinfo);
-	uVar7 = offset & 0x7ff;
-	iVar1 = loadsize;
+	sector = offset / 2048 + CdPosToInt((CdlLOC*)&currentfileinfo);
+	nsectors = offset & 0x7ff;
+	toload = loadsize;
 
-	if (uVar7 != 0)
+	if (nsectors != 0)
 	{
-		CdIntToPos(iVar3, &pos);
-
-		do {
+		CdIntToPos(sector, &pos);
+		do
+		{
 			if (CdDiskReady(0) != 2)
 				DoCDRetry();
+		} while (CdControlB(CdlSetloc, (u_char*)&pos, 0) == 0 ||
+			CdRead(1, (u_long*)sectorbuffer, CdlModeSpeed) == 0 ||
+			CdReadSync(0, result) != 0);
 
-		} while(CdControlB(2, (u_char*)&pos, 0) == 0 ||
-				CdRead(1, (u_long*)sectorbuffer, 0x80) == 0 || 
-				CdReadSync(0, result) != 0);
-
-		if (loadsize <= (0x800 - uVar7)) 
+		if (loadsize <= 2048 - nsectors)
 		{
-			iVar1 = uVar7 + loadsize;
-
-			while (uVar7 < iVar1) 
+			while (nsectors < nsectors + loadsize)
 			{
-				pcVar4 = sectorbuffer + uVar7;
-				uVar7 = uVar7 + 1;
-				*addr = *pcVar4;
-				addr = addr + 1;
+				*addr++ = sectorbuffer[nsectors++];
 			}
+
 			return loadsize;
 		}
 
-		iVar1 = loadsize - (0x800 - uVar7);
-		iVar3 = iVar3 + 1;
-		if (uVar7 < 0x800)
+		toload = loadsize - (2048 - nsectors);
+		sector++;
+
+		while (nsectors < 2048)
 		{
-			do {
-				pcVar4 = sectorbuffer + uVar7;
-				uVar7 = uVar7 + 1;
-				*addr = *pcVar4;
-				addr = addr + 1;
-			} while ((int)uVar7 < 0x800);
+			*addr++ = sectorbuffer[nsectors++];
 		}
 	}
 
-	iVar6 = iVar1;
+	first = toload / 2048;
 
-	iVar6 = iVar6 >> 0xb;
-
-	if (iVar6 != 0) 
+	if (first != 0)
 	{
-		CdIntToPos(iVar3, &pos);
-		iVar3 = iVar3 + iVar6;
-		do {
+		CdIntToPos(sector, &pos);
+		sector = sector + first;
+
+		do
+		{
 			if (CdDiskReady(0) != 2)
 				DoCDRetry();
+		} while (CdControlB(CdlSetloc, (u_char*)&pos, 0) == 0 ||
+			CdRead(first, (u_long*)addr, CdlModeSpeed) == 0 ||
+			CdReadSync(0, result) != 0);
 
-		} while(CdControlB(2, (u_char*)&pos, 0) == 0 || 
-				CdRead(iVar6, (u_long*)addr, 0x80) == 0 ||
-				CdReadSync(0, result) != 0);
-
-		addr += iVar6 * 0x800;
-		iVar1 -= iVar6 * -0x800;
+		addr += first * 2048;
+		toload -= first * 2048;
 	}
 
-	if (iVar1 > 0)
+	if (toload > 0)
 	{
-		CdIntToPos(iVar3, &pos);
-		do {
+		CdIntToPos(sector, &pos);
+
+		do
+		{
 			if (CdDiskReady(0) != 2)
 				DoCDRetry();
+		} while (CdControlB(2, (u_char*)&pos, 0) == 0 ||
+			CdRead(1, (u_long*)sectorbuffer, 0x80) == 0 ||
+			CdReadSync(0, result) != 0);
+		i = 0;
 
-		} while (CdControlB(2, (u_char*)&pos, 0) == 0 || 
-				CdRead(1, (u_long*)sectorbuffer, 0x80) == 0 ||
-				CdReadSync(0, result) != 0);
+		while (i < toload)
+		{
+			*addr++ = sectorbuffer[i++];
 
-		iVar3 = 0;
-
-		while (iVar3 < iVar1)
-			*addr++ = sectorbuffer[iVar3++];
-
+		}
 	}
 	return loadsize;
 #endif // PSX
@@ -597,19 +614,19 @@ int LoadfileSeg(char *name, char *addr, int offset, int loadsize)
 	/* end block 3 */
 	// End Line: 4892
 
-// [D]
+// [D] [T]
 void ReportMode(int on)
 {
 	static unsigned char param[8];
 
 	if (XAPrepared() == 0)
 	{
-		param[0] = 0x80;
-
 		if (on != 0)
-			param[0] = 0x84;
+			param[0] = CdlModeSpeed | CdlModeRept;
+		else
+			param[0] = CdlModeSpeed;
 
-		CdControlB(0xe, param, 0);
+		CdControlB(CdlSetmode, param, 0);
 	}
 }
 
@@ -639,15 +656,14 @@ void ReportMode(int on)
 static unsigned char endread = 0;
 static unsigned char load_complete = 0;
 
-// [D]
+// [D] [T]
 void data_ready(void)
 {
-	if (endread != 0) 
+	if (endread != 0)
 	{
 		CdDataCallback(0);
 		load_complete = 1;
 	}
-	return;
 }
 
 
@@ -664,7 +680,7 @@ void data_ready(void)
 			// Start line: 1004
 			// Start offset: 0x0007FAE4
 			// Variables:
-		// 		struct CdlLOC p; // stack offset -16
+		// 		CdlLOC p; // stack offset -16
 		/* end block 1.1 */
 		// End offset: 0x0007FB34
 		// End Line: 1014
@@ -678,42 +694,40 @@ void data_ready(void)
 	// End Line: 5565
 
 static int current_sector = 0; // offset 0xAB27C
-static char *current_address = NULL; // offset 0xAB288
+static char* current_address = NULL; // offset 0xAB288
 static int sectors_left = 0; // offset 0xAB280
 static int sectors_read = 0; // offset 0xAB284
 static int sectors_this_chunk = 0; // offset 0xAB174
 static int sectors_to_read = 0; // offset 0xAB170
 
-// [D]
-void sector_ready(unsigned char intr, unsigned char *result)
+// [D] [T]
+void sector_ready(unsigned char intr, unsigned char* result)
 {
-	int iVar1;
 	CdlLOC p;
 
-	if (intr == '\x01')
+	if (intr == 1)
 	{
-		CdGetSector(current_address, 0x200);
+		CdGetSector(current_address, 512); // and then it's multiplied by 4
 
-		current_address = current_address + 0x800;
+		current_address = current_address + 2048;
 		current_sector = current_sector + 1;
 		sectors_left = sectors_left + -1;
 
 		if (sectors_left == 0)
 		{
-			endread = '\x01';
+			endread = 1;
 			CdReadyCallback(0);
 			CdControlF(CdlPause, 0);
 		}
 	}
-	else 
+	else
 	{
-		if ((*result & 0x10) != 0)
+		if ((*result & CdlStatShellOpen) != 0)
 		{
 			CdReadyCallback(0);
 
 			do {
-				iVar1 = CdDiskReady(1);
-			} while (iVar1 != 2);
+			} while (CdDiskReady(1) != 2);
 
 			CdReadyCallback(sector_ready);
 		}
@@ -733,7 +747,7 @@ void sector_ready(unsigned char intr, unsigned char *result)
 		// Start line: 1018
 		// Start offset: 0x0007F904
 		// Variables:
-	// 		struct CdlLOC pos; // stack offset -16
+	// 		CdlLOC pos; // stack offset -16
 	/* end block 1 */
 	// End offset: 0x0007F984
 	// End Line: 1035
@@ -748,7 +762,8 @@ void sector_ready(unsigned char intr, unsigned char *result)
 	/* end block 3 */
 	// End Line: 5027
 #ifdef PSX
-void loadsectors(char *addr, int sector, int nsectors)
+// [D] [T]
+void loadsectors(char* addr, int sector, int nsectors)
 {
 	CdlLOC pos;
 
@@ -765,21 +780,18 @@ void loadsectors(char *addr, int sector, int nsectors)
 	CdReadyCallback(sector_ready);
 
 	do {
-	} while (load_complete == '\0');
+	} while (load_complete == 0);
+
 	ShowLoading();
-	return;
 }
 #else
 // It has to be this way
 void loadsectorsPC(char* filename, char* addr, int sector, int nsectors)
 {
-#ifdef __unix__
 	char namebuffer[64];
 	strcpy(namebuffer, filename);
-	fixslashes(namebuffer);
-#else
-	char* namebuffer = filename;
-#endif
+	FixPathSlashes(namebuffer);
+
 
 	FILE* fp = fopen(namebuffer, "rb");
 
@@ -792,7 +804,7 @@ void loadsectorsPC(char* filename, char* addr, int sector, int nsectors)
 	}
 
 	fseek(fp, sector * CDSECTOR_SIZE, SEEK_SET);
-	int numRead = fread(addr, CDSECTOR_SIZE, nsectors, fp);
+	fread(addr, CDSECTOR_SIZE, nsectors, fp);
 
 	fclose(fp);
 
@@ -837,15 +849,15 @@ void loadsectorsPC(char* filename, char* addr, int sector, int nsectors)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void EnableDisplay(void)
 {
 	int i;
 
 	for (i = 0; i < NumPlayers; i++)		// [A]
 	{
-		ClearOTagR((u_long*)MPBuff[i][0].ot, 0x1080);
-		ClearOTagR((u_long*)MPBuff[i][1].ot, 0x1080);
+		ClearOTagR((u_long*)MPBuff[i][0].ot, OTSIZE);
+		ClearOTagR((u_long*)MPBuff[i][1].ot, OTSIZE);
 	}
 }
 
@@ -872,10 +884,10 @@ void EnableDisplay(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
+// [D] [T]
 void DisableDisplay(void)
 {
 	SetDispMask(0);
-	return;
 }
 
 
@@ -917,13 +929,14 @@ int DoNotSwap = 0;
 DB* MPlast[2];
 DB* MPcurrent[2];
 
+// [A]
 void ClearCurrentDrawBuffers()
 {
-	ClearOTagR((u_long*)current->ot, 0x1080);
+	ClearOTagR((u_long*)current->ot, OTSIZE);
 	current->primptr = current->primtab;
 }
 
-// [D]
+// [D] [T]
 void SwapDrawBuffers(void)
 {
 	DrawSync(0);
@@ -938,7 +951,7 @@ void SwapDrawBuffers(void)
 	PutDrawEnv(&current->draw);
 	DrawOTag((u_long*)(current->ot + 0x107f));
 
-	if ((FrameCnt & 1U) == 0) 
+	if ((FrameCnt & 1U) == 0)
 	{
 		current = &MPBuff[0][1];
 		last = &MPBuff[0][0];
@@ -977,14 +990,15 @@ void SwapDrawBuffers(void)
 	/* end block 3 */
 	// End Line: 2654
 
-// [D]
+// [D] [T]
 void SwapDrawBuffers2(int player)
 {
-	uint uVar1;
+	int toggle;
 
 	DrawSync(0);
 
-	if (player == 0) {
+	if (player == 0) 
+	{
 		PutDispEnv(&current->disp);
 	}
 
@@ -993,20 +1007,20 @@ void SwapDrawBuffers2(int player)
 
 	if (player == 1)
 	{
-		uVar1 = FrameCnt & 1;
+		toggle = FrameCnt & 1;
 
 		// [A] i guess it should work as intended
-		MPcurrent[0] = &MPBuff[0][-uVar1 + 1];
-		MPlast[0] = &MPBuff[0][uVar1];
+		MPcurrent[0] = &MPBuff[0][-toggle + 1];
+		MPlast[0] = &MPBuff[0][toggle];
 
-		MPcurrent[1] = &MPBuff[1][-uVar1 + 1];
-		MPlast[1] = &MPBuff[1][uVar1];
+		MPcurrent[1] = &MPBuff[1][-toggle + 1];
+		MPlast[1] = &MPBuff[1][toggle];
 	}
 
 	current = MPcurrent[1 - player];
 	last = MPlast[1 - player];
 
-	ClearOTagR((u_long*)current->ot, 0x1080);
+	ClearOTagR((u_long*)current->ot, OTSIZE);
 	current->primptr = current->primtab;
 }
 
@@ -1031,7 +1045,7 @@ void SwapDrawBuffers2(int player)
 short paddp;
 short padd;
 
-// [D]
+// [D] [T]
 void UpdatePadData(void)
 {
 	ReadControllers();
@@ -1050,7 +1064,7 @@ void UpdatePadData(void)
 		// Start line: 1366
 		// Start offset: 0x0007EDDC
 		// Variables:
-	// 		struct RECT rect; // stack offset -24
+	// 		RECT rect; // stack offset -24
 	// 		int i; // $v1
 	/* end block 1 */
 	// End offset: 0x0007EF0C
@@ -1078,18 +1092,15 @@ void UpdatePadData(void)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void SetupDrawBuffers(void)
 {
-	DB *pDVar1;
-	int iVar2;
-	DB **ppDVar3;
-	DB *pDVar4;
-	DB **ppDVar5;
+	int i;
 	RECT16 rect;
 
 	SetDefDispEnv(&MPBuff[0][0].disp, 0, 256, 320, 256);
 	SetDefDispEnv(&MPBuff[0][1].disp, 0, 0, 320, 256);
+
 	MPBuff[0][0].disp.screen.h = 256;
 	MPBuff[0][1].disp.screen.h = 256;
 	MPBuff[0][0].disp.screen.x = draw_mode.framex;
@@ -1102,26 +1113,20 @@ void SetupDrawBuffers(void)
 	else
 		SetupDrawBufferData(1);
 
-	ppDVar5 = MPlast;
-	pDVar1 = MPBuff[0];
-	pDVar4 = MPBuff[0] + 1;
-	ppDVar3 = MPcurrent;
-	iVar2 = 1;
-	do {
-		*ppDVar5 = pDVar4;
-		ppDVar5 = ppDVar5 + 1;
-		pDVar4 = pDVar4 + 2;
-		*ppDVar3 = pDVar1;
-		ppDVar3 = ppDVar3 + 1;
-		iVar2 = iVar2 + -1;
-		pDVar1 = pDVar1 + 2;
-	} while (-1 < iVar2);
-	rect.w = 0x140;
+	for (i = 0; i < 2; i++)
+	{
+		MPlast[i] = &MPBuff[i][1];
+		MPcurrent[i] = &MPBuff[i][0];
+	}
+
+	rect.w = 320;
+	rect.h = 512;
 	rect.x = 0;
 	rect.y = 0;
-	rect.h = 0x200;
+
 	current = MPcurrent[0];
 	last = MPlast[0];
+
 	ClearImage(&rect, 0, 0, 0);
 	DrawSync(0);
 }
@@ -1159,7 +1164,7 @@ void SetupDrawBuffers(void)
 	/* end block 3 */
 	// End Line: 2935
 
-// [D]
+// [D] [T]
 void SetupDrawBufferData(int num_players)
 {
 	int i;
@@ -1169,7 +1174,7 @@ void SetupDrawBufferData(int num_players)
 	int height;
 	int toggle;
 
-	if (num_players == 1) 
+	if (num_players == 1)
 	{
 		height = 256;
 		x[0] = 0;
@@ -1193,16 +1198,16 @@ void SetupDrawBufferData(int num_players)
 	}
 
 	SetGeomOffset(160, height / 2);
-	
+
 	toggle = 0;
 
 	for (i = 0; i < 2; i++)
 	{
 		for (j = 0; j < num_players; j++)
 		{
-			u_long *otpt;
-			unsigned char *primpt;
-			unsigned char *PRIMpt;
+			u_long* otpt;
+			unsigned char* primpt;
+			unsigned char* PRIMpt;
 
 			if (toggle)
 			{
@@ -1240,7 +1245,7 @@ void SetupDrawBufferData(int num_players)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ InitaliseDrawEnv(struct DB *pBuff /*$s0*/, int x /*$s4*/, int y /*$s3*/, int w /*$s1*/, int h /*stack 16*/)
+// void /*$ra*/ InitaliseDrawEnv(DB *pBuff /*$s0*/, int x /*$s4*/, int y /*$s3*/, int w /*$s1*/, int h /*stack 16*/)
  // line 1535, offset 0x0007f7c0
 	/* begin block 1 */
 		// Start line: 4857
@@ -1252,9 +1257,11 @@ void SetupDrawBufferData(int num_players)
 	/* end block 2 */
 	// End Line: 5091
 
-// [D]
-void InitaliseDrawEnv(DB *pBuff, int x, int y, int w, int h)
+// [D] [T]
+void InitaliseDrawEnv(DB* pBuff, int x, int y, int w, int h)
 {
+	RECT16 clipRect;
+
 	SetDefDrawEnv(&pBuff[0].draw, x, y + 256, w, h);
 	SetDefDrawEnv(&pBuff[1].draw, x, y, w, h);
 
@@ -1288,7 +1295,7 @@ void InitaliseDrawEnv(DB *pBuff, int x, int y, int w, int h)
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 
-// [D]
+// [D] [T]
 void ResetCityType(void)
 {
 	lasttype = (CITYTYPE)-1;
@@ -1299,14 +1306,14 @@ void ResetCityType(void)
 
 // decompiled code
 // original method signature: 
-// void /*$ra*/ SetCityType(enum CITYTYPE type /*$a0*/)
+// void /*$ra*/ SetCityType(CITYTYPE type /*$a0*/)
  // line 1577, offset 0x0007f118
 	/* begin block 1 */
 		// Start line: 1578
 		// Start offset: 0x0007F118
 		// Variables:
-	// 		struct CdlFILE cdfile; // stack offset -120
-	// 		struct XYPAIR *info; // $s2
+	// 		CdlFILE cdfile; // stack offset -120
+	// 		XYPAIR *info; // $s2
 	// 		char namebuffer[64]; // stack offset -96
 	// 		unsigned char result[8]; // stack offset -32
 	// 		int i; // $a2
@@ -1330,23 +1337,14 @@ void ResetCityType(void)
 	/* end block 4 */
 	// End Line: 3318
 
-// [D]
+// [D] [T]
 void SetCityType(CITYTYPE type)
 {
-	int *piVar1;
-	CdlFILE *pCVar2;
-	int levOfs;
-	int iVar3;
-	XYPAIR *cdp;
-	char *format;
-	int *piVar4;
-
-	CdlFILE fp;
-
+	char* format;
 	char filename[64];
 	unsigned char result[8];
 
-	if ((type == lasttype) && (GameLevel == (uint)lastcity))
+	if (type == lasttype && GameLevel == lastcity)
 		return;
 
 	lastcity = GameLevel;
@@ -1372,10 +1370,7 @@ void SetCityType(CITYTYPE type)
 	}
 
 	sprintf(filename, format, gDataFolder, LevelFiles[GameLevel]);
-
-#ifdef __unix__
-	fixslashes(filename);
-#endif
+	FixPathSlashes(filename);
 
 	FILE* levFp = fopen(filename, "rb");
 
@@ -1383,6 +1378,7 @@ void SetCityType(CITYTYPE type)
 	{
 		char errPrint[1024];
 		sprintf(errPrint, "SetCityType: cannot open level '%s'\n", filename);
+	
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "ERROR", errPrint, NULL);
 		return;
 	}
@@ -1399,59 +1395,58 @@ void SetCityType(CITYTYPE type)
 
 	fclose(levFp);
 #else
+	CdlFILE cdfile;
+	XYPAIR* info;
+	int i;
+	int sector;
+	int* data;
+	
 	switch (type)
 	{
-	case CITYTYPE_NIGHT:
-		format = "\\%sN%s;1";
-		break;
-	case CITYTYPE_MULTI_DAY:
-		format = "\\%sM%s;1";
-		break;
-	case CITYTYPE_MULTI_NIGHT:
-		format = "\\%sMN%s;1";
-		break;
-	default:
-		format = "\\%s%s;1";
-		break;
+		case CITYTYPE_NIGHT:
+			format = "\\%sN%s;1";
+			break;
+		case CITYTYPE_MULTI_DAY:
+			format = "\\%sM%s;1";
+			break;
+		case CITYTYPE_MULTI_NIGHT:
+			format = "\\%sMN%s;1";
+			break;
+		default:
+			format = "\\%s%s;1";
+			break;
 	}
 
 	sprintf(filename, format, gDataFolder, LevelFiles[GameLevel]);
 
-LAB_0007f244:
-
-	pCVar2 = CdSearchFile(&fp, filename);
-	while (pCVar2 == NULL) 
+	while (CdSearchFile(&cdfile, filename) == NULL)
 	{
 		DoCDRetry();
-		pCVar2 = CdSearchFile(&fp, filename);
 	}
 
-	levOfs = CdPosToInt((CdlLOC *)&fp);
-	citystart[GameLevel] = levOfs;
+	sector = CdPosToInt((CdlLOC*)&cdfile);
+	citystart[GameLevel] = sector;
 
 	do {
 		do {
-			iVar3 = CdDiskReady(0);
-			if (iVar3 != 2) {
+
+			if (CdDiskReady(0) != 2)
 				DoCDRetry();
-			}
-			iVar3 = CdControlB(2, (u_char*)&fp, 0);
-		} while ((iVar3 == 0) || (iVar3 = CdRead(1, (u_long*)_other_buffer, 0x80), iVar3 == 0));
-		iVar3 = CdReadSync(0, result);
-	} while (iVar3 != 0);
 
-	iVar3 = 3;
-	cdp = citylumps[GameLevel];
+		} while (CdControlB(2, (u_char*)&cdfile, 0) == 0 ||
+				 CdRead(1, (u_long*)_OT1, 0x80) == 0);
 
-	piVar4 = (int*)(_other_buffer + 8);
-	do {
-		iVar3 = iVar3 + -1;
-		cdp->x = *piVar4 + levOfs * 0x800;
-		piVar1 = piVar4 + 1;
-		piVar4 = piVar4 + 2;
-		cdp->y = *piVar1;
-		cdp = cdp + 1;
-	} while (-1 < iVar3);
+	} while (CdReadSync(0, result) != 0);
+
+	data = (int*)_OT1 + 2;
+	
+	for (i = 0; i < 4; i++)
+	{
+		citylumps[GameLevel][i].x = data[0] + sector * 2048;
+		citylumps[GameLevel][i].y = data[1];
+
+		data += 2;
+	}
 #endif // PSX
 }
 
@@ -1465,7 +1460,7 @@ LAB_0007f244:
 		// Start line: 1683
 		// Start offset: 0x0007F5C8
 		// Variables:
-	// 		struct CdlFILE cdfile; // stack offset -176
+	// 		CdlFILE cdfile; // stack offset -176
 	// 		char namebuffer[128]; // stack offset -152
 	// 		unsigned char result[8]; // stack offset -24
 	// 		int retries; // $s1
@@ -1478,34 +1473,32 @@ LAB_0007f244:
 	/* end block 2 */
 	// End Line: 4862
 
-// [D]
-int FileExists(char *filename)
+// [D] [T]
+int FileExists(char* filename)
 {
 #ifdef PSX
-	CdlFILE *pCVar1;
 	int retries;
 	CdlFILE cdfile;
 	char namebuffer[128];
 
 	sprintf(namebuffer, "\\%s%s;1", gDataFolder, filename);
+
 	retries = 9;
 	do {
-		pCVar1 = CdSearchFile(&cdfile, namebuffer);
-		if (pCVar1 != (CdlFILE *)0x0) {
+
+		if (CdSearchFile(&cdfile, namebuffer) != NULL)
 			return 1;
-		}
+
 		retries--;
 		DoCDRetry();
-	} while (retries != -1);
+	} while (retries >= 0);
+
 	return 0;
 #else
 	char namebuffer[128];
 
 	sprintf(namebuffer, "%s%s", gDataFolder, filename);
-
-#ifdef __unix__
-	fixslashes(namebuffer);
-#endif
+	FixPathSlashes(namebuffer);
 
 	FILE* fp = fopen(namebuffer, "rb");
 	if (fp)
@@ -1522,13 +1515,13 @@ int FileExists(char *filename)
 
 // decompiled code
 // original method signature: 
-// enum CDTYPE /*$ra*/ DiscSwapped(char *filename /*$s1*/)
+// CDTYPE /*$ra*/ DiscSwapped(char *filename /*$s1*/)
  // line 1723, offset 0x0007f640
 	/* begin block 1 */
 		// Start line: 1724
 		// Start offset: 0x0007F640
 		// Variables:
-	// 		struct CdlFILE cdfile; // stack offset -40
+	// 		CdlFILE cdfile; // stack offset -40
 	// 		int ret; // $v1
 	/* end block 1 */
 	// End offset: 0x0007F6FC
@@ -1544,47 +1537,44 @@ int FileExists(char *filename)
 	/* end block 3 */
 	// End Line: 4951
 
-// [D]
-CDTYPE DiscSwapped(char *filename)
+// [D] [T]
+CDTYPE DiscSwapped(char* filename)
 {
 #ifndef PSX
 	return CDTYPE_CORRECTDISC;
 #else
 	CDTYPE ret;
-	int iVar1;
 	CdlFILE cdfile;
 
-	iVar1 = CdDiskReady(1);
-
-	if (iVar1 == 2) 
+	switch(CdDiskReady(1))
 	{
-		iVar1 = CdGetDiskType();
-		if (iVar1 != 1) 
+		case CdlStatStandby:
 		{
-			if (iVar1 < 2) 
+			switch(CdGetDiskType())
 			{
-				if (iVar1 != 0) 
-					return CDTYPE_DISCERROR;
-
-				return CDTYPE_NODISC;
+				case CdlStatNoDisk:
+					ret = CDTYPE_NODISC;
+					break;
+				case CdlOtherFormat:
+					ret = CDTYPE_WRONGDISC;
+					break;
+				case CdlCdromFormat:
+				{
+					if (CdSearchFile(&cdfile, filename) != NULL)
+						ret = CDTYPE_CORRECTDISC;
+					else
+						ret = CDTYPE_DISCERROR;
+					
+					break;
+				}
 			}
-
-			if (iVar1 != 2)
-				goto LAB_0007f66c;
-
-			if (CdSearchFile(&cdfile, filename) != NULL)
-				return CDTYPE_CORRECTDISC;
-
+			break;
 		}
-		ret = CDTYPE_WRONGDISC;
-	}
-	else
-	{
-	LAB_0007f66c:
-		ret = CDTYPE_DISCERROR;
-
-		if (iVar1 == 0x10)
+		case CdlStatShellOpen:
 			ret = CDTYPE_SHELLOPEN;
+			break;
+		default:
+			ret = CDTYPE_DISCERROR;
 	}
 
 	return ret;
