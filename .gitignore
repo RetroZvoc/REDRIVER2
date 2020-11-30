@@ -36,3 +36,16 @@ src_rebuild/bin/*
 src_rebuild/obj/*
 src_rebuild/*.make
 src_rebuild/Makefile
+/src_rebuild/REDRIVER2.vcxproj.filters
+/src_rebuild/REDRIVER2.vcxproj
+/src_rebuild/REDRIVER2.sln
+/src_rebuild/PsyX/Psy-X.vcxproj.filters
+/src_rebuild/PsyX/Psy-X.vcxproj
+/src_rebuild/PsyX/obj/Release/Psy-X.vcxproj.FileListAbsolute.txt
+/src_rebuild/PsyX/obj/Debug/Psy-X.vcxproj.FileListAbsolute.txt
+/src_rebuild/PsyX/bin/Release_dev/Psy-X.lib
+/src_rebuild/PsyX/bin/Release/Psy-X.lib
+/src_rebuild/lib/Release_dev/jpeg.lib
+/src_rebuild/lib/Release/jpeg.lib
+/src_rebuild/PsyX/bin/Debug/Psy-X.lib
+/src_rebuild/lib/Debug/jpeg.lib

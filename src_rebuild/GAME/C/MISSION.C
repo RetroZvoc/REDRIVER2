@@ -233,7 +233,7 @@ void InitialiseMissionDefaults(void)
 {
 	int i;
 
-	if (NumPlayers == 2 || GameType > GAME_TAKEADRIVE)
+	if (/*NumPlayers == 2 ||*/ GameType > GAME_TAKEADRIVE) // Allow multiplayer pedestrian epicness
 		lockAllTheDoors = 1;
 	else
 		lockAllTheDoors = 0;
@@ -3769,31 +3769,72 @@ int HandleGameOver(void)
 
 		if (lp->playerType == 1)
 		{
+			// Moved cp over here because it'd be uninitialized for the other part of code I moved
+			cp = &car_data[lp->playerCarId];
+
 			if ((Mission.timer[0].flags & 0x10) || TannerStuckInCar(0, player_id))
 			{
-				cp = &car_data[lp->playerCarId];
-				
 				if (MaxPlayerDamage[player_id] <= cp->totalDamage && lp->dying == 0)
 				{
-					lp->dying = 1;
+					// Allow the car to be wrecked ONLY if invincibility is off!
+					if (!gInvincibleCar)
+					{
+						lp->dying = 1;
+					}
+					else
+					{
+						// This is a safeguard because it's possible to take too much damage in one frame!
+						cp->totalDamage = 0;
+					}
+				}
+			}
+
+			// This code was moved out of the previous block because during invincibility,
+			// Tanner won't be stuck in the car, which means this code wouldn't run,
+			// but it SHOULD run!
+			if (cp->hd.where.m[1][1] < 100)
+			{
+				lp->upsideDown++;
+
+				// If the car is flipped AND in the void, bring it back to the ground unlipped!
+				{
+					long* positionptr = cp->st.n.fposition;
+					VECTOR tmpvector; // We must make our own vector because TempBuildHandlingMatrix needs one
+					tmpvector.vx = positionptr[0];
+					tmpvector.vy = positionptr[1];
+					tmpvector.vz = positionptr[2];
+					int wholesome_height = MapHeight(&tmpvector);
+					if (positionptr[1] < wholesome_height)
+					{
+						positionptr[1] = wholesome_height;
+						extern void TempBuildHandlingMatrix(CAR_DATA*, int);
+						TempBuildHandlingMatrix(cp, 0);
+						lp->upsideDown = 0;
+					}
 				}
 
-				if (cp->hd.where.m[1][1] < 100)
+				// If the car is flipped for too long and the car is invincible,
+				// then don't wreck it, but instead unflip it and reset the timer.
+				if (lp->upsideDown > 180)
 				{
-					lp->upsideDown++;
-
-					if (lp->upsideDown > 180)
+					if (!gInvincibleCar)
 					{
 						cp->totalDamage = MaxPlayerDamage[player_id];
 
-						if(lp->dying < 30)
+						if (lp->dying < 30)
 							lp->dying = 30;
 					}
+					else
+					{
+						extern void TempBuildHandlingMatrix(CAR_DATA*, int);
+						TempBuildHandlingMatrix(cp, 0);
+						lp->upsideDown = 0;
+					}
 				}
-				else 
-				{
-					lp->upsideDown = 0;
-				}
+			}
+			else
+			{
+				lp->upsideDown = 0;
 			}
 		}
 		else if (lp->playerType == 2)
@@ -3814,7 +3855,15 @@ int HandleGameOver(void)
 
 		// check player death
 		if (tannerDeathTimer == 64)
-			lp->dying = 1;
+			// Tanner doesn't die if he's invincible
+			if (!gInvincibleCar)
+			{
+				lp->dying = 1;
+			}
+			else
+			{
+				tannerDeathTimer = 0;
+			}
 
 		if (lp->dying != 0)
 		{

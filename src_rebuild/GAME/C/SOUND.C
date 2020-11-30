@@ -32,8 +32,8 @@ CHANNEL_DATA channels[MAX_SFX_CHANNELS]; // offset 0xDE480
 
 int master_volume = 0;	// why need two?
 
-int gMasterVolume = 0;
-int gMusicVolume = -4000;
+int gMasterVolume = -4000;
+int gMusicVolume = 0;
 
 int Song_ID = -1;
 int VABID = -1;

@@ -1,4 +1,23 @@
-# REDRIVER2
+# REDRIVER2 (RetroZvoc's fork)
+
+This is a fork of SoapyMan's REDRIVER2.
+This fork is made as a mod of REDRIVER2 dedicated to RetroZvoc's mods.
+
+### Mods to implement
+- Perfect invincibility (no drowning, no Black Screen of Death, unflip instead of getting wrecked, be able to get out of a flipped car, and never take too much damage)
+- Unlimited upward velocity (skip web effect)
+- Unlimited angular velocity
+- Explosive cop cars when wrecked
+- 2-player freeroam
+- 2-player co-op undercover
+- 2-player on-foot action
+- Everything unlocked (towns, missions, cars, cheats, race tracks, debug menu, doors, gates, garages, switches, everything!)
+- 2-player gamemodes (assisted or versus of quick chase, quick getaway, survival, etc.)
+- Shift Existance (similar to Driver San Francisco; possibly with a floaty camera vision)
+- Better Film Director for multiplayer (in multiplayer pause/gameover menu, no camera boundary/distance restrictions, better control, show/hide HUD, change Sfx/Music volume)
+- and more...
+
+### Original notice
 
 PC (Windows):
 [![Build status](https://ci.appveyor.com/api/projects/status/9abepvls6jexapqy/branch/master?svg=true)](https://ci.appveyor.com/project/SoapyMan/redriver2-10jm8/branch/master)
@@ -31,7 +50,8 @@ See [Wiki/Installation Instructions](https://github.com/OpenDriver2/REDRIVER2/wi
 
 
 ### Credits
-- Soapy - lead programmer
+- RetroZvoc - mod programmer for this fork
+- Soapy - lead programmer (of the original REDRIVER2)
 - Fireboyd78 - code refactoring and improvements
 - Krishty, someone972 - formats decoding
 - Gh0stBlade - API-level PSY-Q libraries reimplementation (HLE PSX Emulator) [(link)](https://github.com/tomb5/tomb5)

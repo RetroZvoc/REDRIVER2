@@ -161,7 +161,8 @@ int TannerStuckInCar(int doSpeedCheck, int player_id)
 					return 1;
 			}
 
-			if (cp->hd.where.m[1][1] > 99 && lockAllTheDoors == 0)
+			// Tanner isn't stuck if invincibility is on
+			if ((cp->hd.where.m[1][1] > 99 && lockAllTheDoors == 0) || gInvincibleCar)
 			{
 				return 0;
 			}

@@ -759,8 +759,12 @@ void GlobalTimeStep(void)
 		cp->hd.aacc[1] = 0;
 		cp->hd.aacc[2] = 0;
 
-		if (st->n.linearVelocity[1] > 200000) // reduce vertical velocity
-			st->n.linearVelocity[1] = (st->n.linearVelocity[1] * 3) / 4;
+		// Cheat #9: Skip web effect
+		if (!ActiveCheats.cheat9)
+		{
+			if (st->n.linearVelocity[1] > 200000) // reduce vertical velocity
+				st->n.linearVelocity[1] = (st->n.linearVelocity[1] * 3) / 4;
+		}
 
 		if (cp->hd.speed == 0)
 		{

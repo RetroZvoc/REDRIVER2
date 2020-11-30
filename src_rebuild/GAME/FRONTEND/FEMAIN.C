@@ -1019,7 +1019,7 @@ void DrawScreen(PSXSCREEN *pScr)
 
 #if defined(_DEBUG) || defined(DEBUG_OPTIONS)
 		FEPrintString(version_info, 40, 16, 0, 128, 128, 0);
-		FEPrintString("--- " GAME_VERSION " ---", 320, 16, 0, 128, 128, 0);
+		FEPrintString(GAME_VERSION, 290, 16, 0, 128, 128, 0);
 #endif
 
 		SetTextColour(128, 0, 0);
