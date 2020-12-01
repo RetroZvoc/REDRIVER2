@@ -1754,8 +1754,14 @@ void ControlReplay(void)
 		SetFastForward = 0;
 		debounce = 1;
 	}
+	if ((padd & 0x0100) && debounce == 0)
+	{
+		// Press Select to toggle overlays
+		gDoOverlays ^= 1;
+		debounce = 1;
+	}
 
-	if ((padd & 0x8000) == 0 && (padd & 0x7040) == 0)
+	if ((padd & 0x8000) == 0 && (padd & 0x7140) == 0)
 	{
 		debounce = 0;
 	}

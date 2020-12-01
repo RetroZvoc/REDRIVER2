@@ -1961,8 +1961,12 @@ void StepGame(void)
 		if (color > 15)
 			color = 32 - color;
 
-		SetTextColour((color & 0x1f) << 3, 0, 0);
-		PrintStringFeature("Fast forward", 100, 0x1e, 0x1000, 0x1000, 0);
+		// Don't show this annoying text if overlays are turned off!
+		if (gDoOverlays)
+		{
+			SetTextColour((color & 0x1f) << 3, 0, 0);
+			PrintStringFeature("Fast forward", 100, 0x1e, 0x1000, 0x1000, 0);
+		}
 	}
 
 	// check for pause mode
@@ -2812,6 +2816,11 @@ void UpdatePlayerInformation(void)
 		{
 			gDieWithFade = 1;
 		}
+	}
+	// Disable Black Screen of Death if invincibility is on
+	if (gInvincibleCar)
+	{
+		gDieWithFade = 0;
 	}
 }
 
